@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Andoy's Schedule Pro - Full System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #E67E22;
+            --dark: #2C2C2C;
+            --bg: #F7F7F7;
+            --text: #1A1A1A;
+            --white: #FFFFFF;
+            --gray: #888888;
+            --gray-light: #B0B0B0;
+            --sidebar-width: 72px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg); color: var(--text); overflow-x: hidden; }
+
+        /* --- UI Utility --- */
+        .page { display: none; min-height: 100vh; animation: fadeIn 0.3s ease; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- AUTH SCREENS --- */
+        .auth-bg { background: var(--dark); height: 100vh; color: white; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px; text-align: center; }
+        .auth-logo { width: 180px; margin-bottom: 30px; }
+        .btn-main { background: var(--primary); color: white; border: none; padding: 15px 40px; border-radius: 12px; font-weight: bold; width: 100%; margin-top: 15px; cursor: pointer; }
+        .btn-outline { background: #E0E0E0; color: var(--dark); border: none; padding: 15px 40px; border-radius: 12px; font-weight: bold; width: 100%; margin-top: 15px; cursor: pointer; }
+
+        .form-container { background: white; height: 100vh; padding: 40px 25px; color: var(--dark); }
+        .form-container h2 { font-size: 2rem; margin-bottom: 30px; }
+        input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 10px; border: 1px solid #eee; background: #f9f9f9; }
+
+        /* --- APP SHELL & SIDEBAR --- */
+        .app-shell { display: none; min-height: 100vh; }
+        .app-shell.visible { display: flex; }
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: var(--dark);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 28px 0 24px;
+            z-index: 1000;
+        }
+
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 28px;
+            flex: 1;
+        }
+
+        .sidebar-item {
+            color: #777;
+            font-size: 1.35rem;
+            cursor: pointer;
+            transition: color 0.2s;
+            background: none;
+            border: none;
+            padding: 4px;
+        }
+
+        .sidebar-item:hover { color: #aaa; }
+        .sidebar-item.active { color: var(--primary); }
+
+        .sidebar-profile {
+            width: 36px;
+            height: 36px;
+            background: #E8E8E8;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border: none;
+        }
+
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            min-height: 100vh;
+            padding: 36px 48px 48px;
+        }
+
+        /* --- HOME PAGE --- */
+        .home-header { margin-bottom: 32px; }
+        .home-header .page-label { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+        .home-header .greeting { font-size: 2.75rem; font-weight: 700; line-height: 1.15; color: var(--text); }
+        .home-header .greeting span { color: var(--primary); }
+
+        .home-grid {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 40px;
+            align-items: start;
+        }
+
+        .section-label {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--gray);
+            margin-bottom: 14px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 18px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+        }
+
+        /* --- HOME CALENDAR --- */
+        .home-calendar-card { padding: 28px 24px 24px; }
+
+        .home-calendar-card .month-title {
+            text-align: center;
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 20px;
+        }
+
+        .cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px 0;
+        }
+
+        .cal-header {
+            font-weight: 600;
+            color: var(--primary);
+            text-align: center;
+            font-size: 0.8rem;
+            padding-bottom: 12px;
+        }
+
+        .cal-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text);
+            position: relative;
+        }
+
+        .cal-day.muted { color: #D0D0D0; }
+
+        /* Home calendar event days — filled orange circles */
+        .home-calendar-card .cal-day.event-selected::before {
+            content: '';
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            background: var(--primary);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+        }
+
+        .home-calendar-card .cal-day.event-selected span {
+            position: relative;
+            z-index: 1;
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Home calendar today — orange ring circle */
+        .home-calendar-card .cal-day.today-ring::before {
+            content: '';
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            border: 2px solid var(--primary);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-sizing: border-box;
+            z-index: 0;
+        }
+
+        .home-calendar-card .cal-day.today-ring span {
+            position: relative;
+            z-index: 1;
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        /* --- TASK CARD --- */
+        .task-card { padding: 24px 28px; margin-bottom: 28px; }
+        .task-card h3 { color: var(--primary); font-size: 1.05rem; font-weight: 600; margin-bottom: 6px; }
+        .task-card .task-date { color: var(--gray); font-size: 0.85rem; margin-bottom: 14px; }
+        .task-card .task-desc { font-size: 0.9rem; line-height: 1.55; color: var(--text); }
+
+        /* --- LOG ENTRIES --- */
+        .logs-section .section-label { font-weight: 600; color: #666; margin-bottom: 16px; }
+
+        .log-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 20px 24px;
+            margin-bottom: 12px;
+        }
+
+        .log-entry:last-child { margin-bottom: 0; }
+
+        .log-left .log-name { color: var(--primary); font-weight: 600; font-size: 0.95rem; margin-bottom: 6px; }
+        .log-left .log-time { color: var(--gray-light); font-size: 0.82rem; }
+        .log-right { text-align: right; font-size: 0.88rem; line-height: 1.5; color: var(--text); max-width: 55%; }
+        .log-right b { font-weight: 700; }
+
+        /* --- PAGE HEADINGS --- */
+        .content-padding { padding: 0; }
+        .page-heading { font-size: 2.75rem; font-weight: 700; line-height: 1.15; color: var(--text); margin-bottom: 28px; }
+
+        /* --- VIEW TOGGLE --- */
+        .view-toggle {
+            background: #ECECEC;
+            padding: 4px;
+            border-radius: 10px;
+            font-size: 0.82rem;
+            display: inline-flex;
+            gap: 2px;
+        }
+
+        .view-toggle span {
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--gray);
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .view-toggle span.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: none;
+            font-weight: 600;
+        }
+
+        .page-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .month-year-label {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 16px;
+        }
+
+        /* --- FULL MONTHLY CALENDAR --- */
+        .month-calendar-card { padding: 28px 24px 32px; }
+
+        .month-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            border-top: 1px solid #F0F0F0;
+        }
+
+        .month-grid-header {
+            font-weight: 600;
+            color: var(--primary);
+            text-align: center;
+            font-size: 0.85rem;
+            padding: 14px 4px;
+        }
+
+        .month-cell {
+            min-height: 100px;
+            border-right: 1px solid #F0F0F0;
+            border-bottom: 1px solid #F0F0F0;
+            padding: 8px 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            position: relative;
+        }
+
+        .month-cell:nth-child(7n) { border-right: none; }
+
+        .month-cell .day-num {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 2px;
+        }
+
+        .month-cell.muted .day-num { color: #C8C8C8; }
+
+        .month-cell .day-icon {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 22px;
+            height: 22px;
+            background: #333;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.55rem;
+        }
+
+        .event-tag {
+            font-size: 0.68rem;
+            font-weight: 500;
+            padding: 4px 6px;
+            border-radius: 4px;
+            line-height: 1.3;
+            color: var(--text);
+        }
+
+        .event-tag.bike { background: #FAD7A0; }
+        .event-tag.motorcycle { background: #E59866; color: white; }
+        .event-tag.suppliers { background: #C0392B; color: white; }
+
+        /* --- SCHEDULE PAGE --- */
+        .schedule-grid {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 40px;
+            align-items: start;
+        }
+
+        .schedule-card {
+            background: #EFEFEF;
+            border-radius: 14px;
+            padding: 22px 26px;
+            margin-bottom: 14px;
+            box-shadow: none;
+        }
+
+        .schedule-card h3 {
+            color: var(--primary);
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .schedule-card .task-date {
+            color: var(--gray);
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+        }
+
+        .schedule-card .task-desc {
+            font-size: 0.9rem;
+            line-height: 1.55;
+            color: var(--text);
+        }
+
+        .schedule-section .section-label {
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 14px;
+        }
+
+        /* Schedule mini-calendar uses circular dark selection */
+        .schedule-calendar .cal-day.schedule-selected::before {
+            content: '';
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            background: #1A1A1A;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+        }
+
+        .schedule-calendar .cal-day.schedule-selected span {
+            position: relative;
+            z-index: 1;
+            color: white;
+            font-weight: 600;
+        }
+
+        .staff-row { display: flex; align-items: center; gap: 15px; padding: 15px 0; border-bottom: 1px solid #eee; }
+        .avatar { width: 45px; height: 45px; background: #eee; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #aaa; }
+        .status-badge { font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+        .status-available { background: #dcfce7; color: #22c55e; }
+        .status-absent { background: #fee2e2; color: #ef4444; }
+
+        .profile-hero { text-align: center; padding: 20px 0 40px; }
+        .profile-img { width: 100px; height: 100px; background: #ddd; border-radius: 50%; margin: 0 auto 15px; border: 4px solid white; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; }
+
+        @media (max-width: 900px) {
+            .home-grid,
+            .schedule-grid { grid-template-columns: 1fr; }
+            .main-content { padding: 24px 20px 40px; }
+            .home-header .greeting,
+            .page-heading { font-size: 2rem; }
+            .log-entry { flex-direction: column; gap: 10px; }
+            .log-right { text-align: left; max-width: 100%; }
+            .page-top-row { flex-direction: column; gap: 16px; }
+            .month-cell { min-height: 72px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- PAGE: GET STARTED (Landing) -->
+    <div id="page-landing" class="page active">
+        <div class="auth-bg">
+            <img src="https://via.placeholder.com/180x80/1A1A1A/E67E22?text=ANDOY'S" class="auth-logo" alt="Logo">
+            <h1 style="font-size: 2.5rem; line-height: 1;">Let's<br><span style="color:var(--primary)">get started</span></h1>
+            <div style="width: 100%; margin-top: 40px;">
+                <button class="btn-main" onclick="navigateTo('page-login')">Log in</button>
+                <button class="btn-outline" onclick="navigateTo('page-signup')">Sign up</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE: LOGIN -->
+    <div id="page-login" class="page">
+        <div class="form-container">
+            <i class="fas fa-arrow-left" onclick="navigateTo('page-landing')" style="cursor:pointer;"></i>
+            <h2 style="margin-top:20px">Log in</h2>
+            <input type="email" placeholder="Email">
+            <input type="password" placeholder="Password">
+            <p style="text-align: right; color: var(--gray); font-size: 0.8rem;">Forgot password?</p>
+            <button class="btn-main" onclick="navigateTo('page-home')">Log In</button>
+            <p style="text-align:center; margin-top:20px; font-size: 0.9rem;">Don't have an account? <span style="color:var(--primary); cursor:pointer;" onclick="navigateTo('page-signup')">Sign up</span></p>
+        </div>
+    </div>
+
+    <!-- PAGE: SIGNUP -->
+    <div id="page-signup" class="page">
+        <div class="form-container">
+            <i class="fas fa-arrow-left" onclick="navigateTo('page-landing')" style="cursor:pointer;"></i>
+            <h2 style="margin-top:20px">Create Account</h2>
+            <input type="text" placeholder="Full Name">
+            <input type="email" placeholder="Email">
+            <input type="tel" placeholder="Phone Number">
+            <input type="password" placeholder="Password">
+            <input type="password" placeholder="Confirm Password">
+            <button class="btn-main" onclick="navigateTo('page-home')">Sign Up</button>
+        </div>
+    </div>
+
+    <!-- APP SHELL (authenticated pages) -->
+    <div id="app-shell" class="app-shell">
+        <aside class="sidebar">
+            <nav class="sidebar-nav">
+                <button class="sidebar-item active" data-page="page-home" onclick="navigateTo('page-home', this)" aria-label="Home">
+                    <i class="fas fa-home"></i>
+                </button>
+                <button class="sidebar-item" data-page="page-calendar" onclick="navigateTo('page-calendar', this)" aria-label="Calendar">
+                    <i class="fas fa-calendar-alt"></i>
+                </button>
+                <button class="sidebar-item" data-page="page-schedule" onclick="navigateTo('page-schedule', this)" aria-label="Schedule">
+                    <i class="fas fa-clock"></i>
+                </button>
+                <button class="sidebar-item" data-page="page-staff" onclick="navigateTo('page-staff', this)" aria-label="Staff">
+                    <i class="fas fa-desktop"></i>
+                </button>
+            </nav>
+            <button class="sidebar-profile" onclick="navigateTo('page-profile')" aria-label="Profile">
+                <i class="fas fa-user"></i>
+            </button>
+        </aside>
+
+        <main class="main-content">
+            <!-- PAGE: HOME (Dashboard) -->
+            <div id="page-home" class="page">
+                <header class="home-header">
+                    <p class="page-label">Home</p>
+                    <h1 class="greeting">Hello, <span>Manager!</span></h1>
+                </header>
+
+                <div class="home-grid">
+                    <div class="home-calendar-col">
+                        <p class="section-label">Calendar</p>
+                        <div class="card home-calendar-card">
+                            <p class="month-title">July</p>
+                            <div class="cal-grid">
+                                <div class="cal-header">S</div>
+                                <div class="cal-header">M</div>
+                                <div class="cal-header">T</div>
+                                <div class="cal-header">W</div>
+                                <div class="cal-header">T</div>
+                                <div class="cal-header">F</div>
+                                <div class="cal-header">S</div>
+
+                                <div class="cal-day muted"><span>29</span></div>
+                                <div class="cal-day muted"><span>30</span></div>
+                                <div class="cal-day"><span>1</span></div>
+                                <div class="cal-day"><span>2</span></div>
+                                <div class="cal-day event-selected"><span>3</span></div>
+                                <div class="cal-day event-selected"><span>4</span></div>
+                                <div class="cal-day event-selected"><span>5</span></div>
+
+                                <div class="cal-day today-ring"><span>6</span></div>
+                                <div class="cal-day"><span>7</span></div>
+                                <div class="cal-day"><span>8</span></div>
+                                <div class="cal-day"><span>9</span></div>
+                                <div class="cal-day"><span>10</span></div>
+                                <div class="cal-day"><span>11</span></div>
+                                <div class="cal-day"><span>12</span></div>
+
+                                <div class="cal-day"><span>13</span></div>
+                                <div class="cal-day"><span>14</span></div>
+                                <div class="cal-day"><span>15</span></div>
+                                <div class="cal-day"><span>16</span></div>
+                                <div class="cal-day"><span>17</span></div>
+                                <div class="cal-day"><span>18</span></div>
+                                <div class="cal-day"><span>19</span></div>
+
+                                <div class="cal-day"><span>20</span></div>
+                                <div class="cal-day"><span>21</span></div>
+                                <div class="cal-day"><span>22</span></div>
+                                <div class="cal-day"><span>23</span></div>
+                                <div class="cal-day"><span>24</span></div>
+                                <div class="cal-day"><span>25</span></div>
+                                <div class="cal-day"><span>26</span></div>
+
+                                <div class="cal-day"><span>27</span></div>
+                                <div class="cal-day"><span>28</span></div>
+                                <div class="cal-day"><span>29</span></div>
+                                <div class="cal-day"><span>30</span></div>
+                                <div class="cal-day"><span>31</span></div>
+                                <div class="cal-day muted"><span>1</span></div>
+                                <div class="cal-day muted"><span>2</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="home-right-col">
+                        <div class="card task-card">
+                            <h3>Motorcycle Repair</h3>
+                            <p class="task-date">July 3, 2025 - July 5, 2025</p>
+                            <p class="task-desc">Inspect and replace the damaged clutch cable to restore smooth gear shifting.</p>
+                        </div>
+
+                        <section class="logs-section">
+                            <p class="section-label">Today's Logs</p>
+
+                            <div class="card log-entry">
+                                <div class="log-left">
+                                    <p class="log-name">John dela Cruz</p>
+                                    <p class="log-time">July 3, 2025 09:31</p>
+                                </div>
+                                <div class="log-right">Logged in on-duty</div>
+                            </div>
+
+                            <div class="card log-entry">
+                                <div class="log-left">
+                                    <p class="log-name">Mark Perez</p>
+                                    <p class="log-time">July 3, 2025 11:45</p>
+                                </div>
+                                <div class="log-right"><b>WORK:</b> Repaired wheels<br><b>CLIENT:</b> Horse</div>
+                            </div>
+
+                            <div class="card log-entry">
+                                <div class="log-left">
+                                    <p class="log-name">Alex Reyes</p>
+                                    <p class="log-time">July 3, 2025 16:45</p>
+                                </div>
+                                <div class="log-right">Signed out</div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE: CALENDAR -->
+            <div id="page-calendar" class="page">
+                <div class="page-top-row">
+                    <h1 class="page-heading">Calendar</h1>
+                    <div class="view-toggle">
+                        <span>Week</span>
+                        <span class="active">Month</span>
+                        <span>Year</span>
+                    </div>
+                </div>
+                <p class="month-year-label">July 2025</p>
+                <div class="card month-calendar-card">
+                    <div class="month-grid">
+                        <div class="month-grid-header">Sun</div>
+                        <div class="month-grid-header">Mon</div>
+                        <div class="month-grid-header">Tue</div>
+                        <div class="month-grid-header">Wed</div>
+                        <div class="month-grid-header">Thu</div>
+                        <div class="month-grid-header">Fri</div>
+                        <div class="month-grid-header">Sat</div>
+
+                        <div class="month-cell muted"><span class="day-num">29</span></div>
+                        <div class="month-cell muted">
+                            <span class="day-num">30</span>
+                            <div class="event-tag bike">Bike repair</div>
+                        </div>
+                        <div class="month-cell"><span class="day-num">1</span></div>
+                        <div class="month-cell"><span class="day-num">2</span></div>
+                        <div class="month-cell"><span class="day-num">3</span></div>
+                        <div class="month-cell"><span class="day-num">4</span></div>
+                        <div class="month-cell"><span class="day-num">5</span></div>
+
+                        <div class="month-cell"><span class="day-num">6</span></div>
+                        <div class="month-cell"><span class="day-num">7</span></div>
+                        <div class="month-cell"><span class="day-num">8</span></div>
+                        <div class="month-cell"><span class="day-num">9</span></div>
+                        <div class="month-cell"><span class="day-num">10</span></div>
+                        <div class="month-cell"><span class="day-num">11</span></div>
+                        <div class="month-cell"><span class="day-num">12</span></div>
+
+                        <div class="month-cell"><span class="day-num">13</span></div>
+                        <div class="month-cell"><span class="day-num">14</span></div>
+                        <div class="month-cell">
+                            <span class="day-num">15</span>
+                            <span class="day-icon"><i class="fas fa-wrench"></i></span>
+                        </div>
+                        <div class="month-cell"><span class="day-num">16</span></div>
+                        <div class="month-cell"><span class="day-num">17</span></div>
+                        <div class="month-cell">
+                            <span class="day-num">18</span>
+                            <div class="event-tag bike">Bike repair</div>
+                        </div>
+                        <div class="month-cell"><span class="day-num">19</span></div>
+
+                        <div class="month-cell">
+                            <span class="day-num">20</span>
+                            <div class="event-tag motorcycle">Motorcycle repair</div>
+                        </div>
+                        <div class="month-cell"><span class="day-num">21</span></div>
+                        <div class="month-cell">
+                            <span class="day-num">22</span>
+                            <div class="event-tag suppliers">Suppliers delivery</div>
+                            <div class="event-tag bike">Bike repair</div>
+                        </div>
+                        <div class="month-cell"><span class="day-num">23</span></div>
+                        <div class="month-cell"><span class="day-num">24</span></div>
+                        <div class="month-cell"><span class="day-num">25</span></div>
+                        <div class="month-cell"><span class="day-num">26</span></div>
+
+                        <div class="month-cell"><span class="day-num">27</span></div>
+                        <div class="month-cell">
+                            <span class="day-num">28</span>
+                            <div class="event-tag suppliers">Suppliers delivery</div>
+                        </div>
+                        <div class="month-cell">
+                            <span class="day-num">29</span>
+                            <div class="event-tag bike">Bike repair</div>
+                            <div class="event-tag motorcycle">Motorcycle repair</div>
+                        </div>
+                        <div class="month-cell"><span class="day-num">30</span></div>
+                        <div class="month-cell">
+                            <span class="day-num">31</span>
+                            <div class="event-tag bike">Bike repair</div>
+                        </div>
+                        <div class="month-cell muted"><span class="day-num">1</span></div>
+                        <div class="month-cell muted"><span class="day-num">2</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE: SCHEDULE -->
+            <div id="page-schedule" class="page">
+                <h1 class="page-heading">Schedule</h1>
+
+                <div class="schedule-grid">
+                    <div class="schedule-calendar-col">
+                        <div class="card home-calendar-card schedule-calendar">
+                            <p class="month-title">July</p>
+                            <div class="cal-grid">
+                                <div class="cal-header">S</div>
+                                <div class="cal-header">M</div>
+                                <div class="cal-header">T</div>
+                                <div class="cal-header">W</div>
+                                <div class="cal-header">T</div>
+                                <div class="cal-header">F</div>
+                                <div class="cal-header">S</div>
+
+                                <div class="cal-day muted"><span>29</span></div>
+                                <div class="cal-day muted"><span>30</span></div>
+                                <div class="cal-day"><span>1</span></div>
+                                <div class="cal-day"><span>2</span></div>
+                                <div class="cal-day schedule-selected"><span>3</span></div>
+                                <div class="cal-day schedule-selected"><span>4</span></div>
+                                <div class="cal-day schedule-selected"><span>5</span></div>
+
+                                <div class="cal-day"><span>6</span></div>
+                                <div class="cal-day"><span>7</span></div>
+                                <div class="cal-day"><span>8</span></div>
+                                <div class="cal-day"><span>9</span></div>
+                                <div class="cal-day"><span>10</span></div>
+                                <div class="cal-day"><span>11</span></div>
+                                <div class="cal-day"><span>12</span></div>
+
+                                <div class="cal-day"><span>13</span></div>
+                                <div class="cal-day"><span>14</span></div>
+                                <div class="cal-day"><span>15</span></div>
+                                <div class="cal-day"><span>16</span></div>
+                                <div class="cal-day"><span>17</span></div>
+                                <div class="cal-day"><span>18</span></div>
+                                <div class="cal-day"><span>19</span></div>
+
+                                <div class="cal-day"><span>20</span></div>
+                                <div class="cal-day"><span>21</span></div>
+                                <div class="cal-day"><span>22</span></div>
+                                <div class="cal-day"><span>23</span></div>
+                                <div class="cal-day"><span>24</span></div>
+                                <div class="cal-day"><span>25</span></div>
+                                <div class="cal-day"><span>26</span></div>
+
+                                <div class="cal-day"><span>27</span></div>
+                                <div class="cal-day"><span>28</span></div>
+                                <div class="cal-day"><span>29</span></div>
+                                <div class="cal-day"><span>30</span></div>
+                                <div class="cal-day"><span>31</span></div>
+                                <div class="cal-day muted"><span>1</span></div>
+                                <div class="cal-day muted"><span>2</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="schedule-right-col">
+                        <section class="schedule-section">
+                            <p class="section-label">Today's Schedule</p>
+                            <div class="schedule-card">
+                                <h3>Motorcycle Repair</h3>
+                                <p class="task-date">July 3, 2025 - July 5, 2025</p>
+                                <p class="task-desc">Inspect and replace the damaged clutch cable to restore smooth gear shifting.</p>
+                            </div>
+                        </section>
+
+                        <section class="schedule-section">
+                            <p class="section-label">Upcoming Schedules</p>
+                            <div class="schedule-card">
+                                <h3>Bike Repair</h3>
+                                <p class="task-date">July 6, 2025</p>
+                                <p class="task-desc">Tighten the loose brake cables and adjust the brake pads for proper alignment.</p>
+                            </div>
+                            <div class="schedule-card">
+                                <h3>Motorcycle Repair</h3>
+                                <p class="task-date">July 7, 2025</p>
+                                <p class="task-desc">Replace a worn-out clutch lever and bleed the clutch fluid to restore proper engagement.</p>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE: STAFF -->
+            <div id="page-staff" class="page">
+                <h1 class="page-heading">Staff</h1>
+                <div class="card" style="padding: 20px;">
+                    <div class="staff-row">
+                        <div class="avatar"><i class="fas fa-user"></i></div>
+                        <div style="flex:1"><h4>Alen Garcia</h4><p style="font-size:0.7rem">Manager</p></div>
+                        <span class="status-badge status-available">Available</span>
+                    </div>
+                    <div class="staff-row">
+                        <div class="avatar"><i class="fas fa-user"></i></div>
+                        <div style="flex:1"><h4>Mark Perez</h4><p style="font-size:0.7rem">Mechanic</p></div>
+                        <span class="status-badge status-absent">Absent</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE: PROFILE -->
+            <div id="page-profile" class="page">
+                <div class="profile-hero">
+                    <div class="profile-img"><i class="fas fa-user" style="font-size: 3rem; color: #bbb;"></i></div>
+                    <h2 style="color:var(--primary)">Alen Garcia</h2>
+                    <p>Manager</p>
+                </div>
+                <div class="card" style="padding: 20px;">
+                    <p style="font-weight: bold; font-size: 0.8rem; color: var(--gray);">Full Name</p>
+                    <p>Alen Mariano D. Garcia</p>
+                    <hr style="margin: 15px 0; opacity: 0.1;">
+                    <p style="font-weight: bold; font-size: 0.8rem; color: var(--gray);">Email</p>
+                    <p>garcia.alen@gmail.com</p>
+                    <hr style="margin: 15px 0; opacity: 0.1;">
+                    <p style="font-weight: bold; font-size: 0.8rem; color: var(--gray);">Phone Number</p>
+                    <p>0997 123 4567</p>
+                </div>
+                <button class="btn-outline" style="background:#fee2e2; color:#ef4444; margin-top: 20px;" onclick="navigateTo('page-landing')">Log Out</button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const authPages = ['page-landing', 'page-login', 'page-signup'];
+        const appPages = ['page-home', 'page-calendar', 'page-schedule', 'page-staff', 'page-profile'];
+
+        function navigateTo(pageId, element = null) {
+            const isAuth = authPages.includes(pageId);
+
+            document.querySelectorAll('#app-shell .page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.page').forEach(p => {
+                if (authPages.includes(p.id)) p.classList.remove('active');
+            });
+
+            const appShell = document.getElementById('app-shell');
+
+            if (isAuth) {
+                appShell.classList.remove('visible');
+                document.getElementById(pageId).classList.add('active');
+            } else {
+                appShell.classList.add('visible');
+                document.getElementById(pageId).classList.add('active');
+            }
+
+            document.querySelectorAll('.sidebar-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.page === pageId);
+            });
+        }
+    </script>
+</body>
+</html>
