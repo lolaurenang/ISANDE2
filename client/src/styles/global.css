@@ -210,7 +210,7 @@ a:hover { text-decoration: underline; }
 .logo-md img, .logo-md .logo-fallback { max-width: 190px; font-size: 2rem; }
 .logo-lg img, .logo-lg .logo-fallback { max-width: 260px; font-size: 2.7rem; }
 .logo-fallback {
-  display: block;
+  display: none;
   font-weight: 700;
   font-style: italic;
   letter-spacing: -0.02em;
