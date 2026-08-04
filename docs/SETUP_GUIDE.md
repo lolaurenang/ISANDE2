@@ -28,8 +28,8 @@ Install it too — it is the easiest way to see whether your data is really savi
 ## Step 1 — Get the code
 
 ```bash
-git clone <your-repo-url> andoys-scheduling-system
-cd andoys-scheduling-system
+git clone <your-repo-url> ISANDE2-main
+cd ISANDE2-main
 ```
 
 Working from a zip instead? Unzip it and `cd` into the folder.
