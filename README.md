@@ -14,6 +14,8 @@ to run:
 4. Open <http://localhost:5173>
 
 
+Run only when new data is added: npm run seed
+
 test email and pass (andoys123) for all:
 manager@andoys.ph 
 antonio@andoys.ph
