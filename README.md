@@ -3,7 +3,8 @@
 to run:
 1. cd server
 2. npm install (npm.cmd if nageerror for npm only)
-3. npm run dev
+3. copy .env.example .env
+4. npm run dev
 
 
 (open another terminal)
