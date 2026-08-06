@@ -214,7 +214,7 @@ export default function Dashboard() {
               </article>
             ))
           ) : (
-            <EmptyState title="No requests" hint="Time-off and shift-change requests land here." />
+            <EmptyState title="No requests" hint="Leave and shift-change requests land here." />
           )}
         </section>
       )}

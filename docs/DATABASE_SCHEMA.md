@@ -8,7 +8,7 @@ User ──< Attendance          one attendance row per person per day
   ├───< Availability         one row per person per day they can work
   ├───< ActivityLog          append-only audit trail
   ├───< Notification         one row per alert delivered
-  ├───< ShiftRequest         time-off and shift-change requests
+  ├───< ShiftRequest         leave and shift-change requests
   └───< ServiceJob           assignedTo / createdBy
                 │
                 └──< ActivityLog.relatedJob
@@ -162,7 +162,7 @@ one index scan.
 | Field | Type | Rules |
 |---|---|---|
 | `requestedBy` | ObjectId → User | required |
-| `type` | String | `time-off` \| `shift-change` \| `schedule-swap` |
+| `type` | String | `leave` \| `shift-change` \| `schedule-swap` |
 | `workDate` | String | required, `YYYY-MM-DD` |
 | `reason` | String | required, ≤ 500 chars |
 | `status` | String | `pending` \| `approved` \| `denied`, indexed |

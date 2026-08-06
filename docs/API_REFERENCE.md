@@ -158,7 +158,7 @@ seconds to keep the sidebar badge current.
 | Method | Path | Access | Purpose |
 |---|---|---|---|
 | GET | `/requests` | any | Managers see all; employees see their own. `?status=` |
-| POST | `/requests` | any | Ask for time off or a shift change |
+| POST | `/requests` | any | Ask for leave or a shift change |
 | PATCH | `/requests/:id/review` | manager | `{ "status": "approved" \| "denied", "reviewNote": "" }` |
 | DELETE | `/requests/:id` | owner | Withdraw a pending request |
 

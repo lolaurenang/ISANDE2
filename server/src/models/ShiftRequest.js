@@ -7,7 +7,7 @@
  */
 import mongoose from 'mongoose';
 
-export const REQUEST_TYPES = ['time-off', 'shift-change', 'schedule-swap'];
+export const REQUEST_TYPES = ['leave', 'shift-change', 'schedule-swap'];
 export const REQUEST_STATUS = ['pending', 'approved', 'denied'];
 
 const shiftRequestSchema = new mongoose.Schema(
@@ -18,7 +18,7 @@ const shiftRequestSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    type: { type: String, enum: REQUEST_TYPES, default: 'time-off' },
+    type: { type: String, enum: REQUEST_TYPES, default: 'leave' },
     workDate: {
       type: String,
       required: true,

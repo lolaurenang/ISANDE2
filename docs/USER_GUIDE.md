@@ -58,7 +58,7 @@ When a job is done, press **Mark completed**.
 
 ### Ask for a day off
 
-**Profile → Request time off**. Pick the type, the date and the reason. The
+**Profile → Request leave**. Pick the type, the date and the reason. The
 manager gets a notification and you get one back when they decide. You can
 withdraw a request as long as it is still pending.
 
@@ -105,7 +105,7 @@ Four tabs, each filtered by Week / Month / Year:
   from the dropdown when you know they are out.
 - **Hours** — total hours per person, days present, days late, days absent. This
   is what you use for performance reviews and pay discussions.
-- **Requests** — approve or deny time off. The employee is notified either way.
+- **Requests** — approve or deny leave. The employee is notified either way.
 
 ### Correcting attendance
 

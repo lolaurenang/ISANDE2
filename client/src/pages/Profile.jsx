@@ -18,7 +18,7 @@ export default function Profile() {
   const [pwOpen, setPwOpen] = useState(false);
   const [pw, setPw] = useState({ currentPassword: '', newPassword: '' });
   const [reqOpen, setReqOpen] = useState(false);
-  const [req, setReq] = useState({ type: 'time-off', workDate: toDateKey(), reason: '' });
+  const [req, setReq] = useState({ type: 'leave', workDate: toDateKey(), reason: '' });
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -51,7 +51,7 @@ export default function Profile() {
     try {
       await requestsApi.create(req);
       setReqOpen(false);
-      setReq({ type: 'time-off', workDate: toDateKey(), reason: '' });
+      setReq({ type: 'leave', workDate: toDateKey(), reason: '' });
       setNotice('Request sent to your manager');
     } catch (err) {
       setError(err.message);
@@ -130,7 +130,7 @@ export default function Profile() {
         </button>
         {user.role !== 'manager' && (
           <button className="btn btn-ghost btn-sm" type="button" onClick={() => setReqOpen(true)}>
-            Request time off
+            Request Leave
           </button>
         )}
         <button
@@ -172,12 +172,12 @@ export default function Profile() {
         </form>
       </Modal>
 
-      <Modal open={reqOpen} title="Request time off" onClose={() => setReqOpen(false)}>
+      <Modal open={reqOpen} title="Request Leave" onClose={() => setReqOpen(false)}>
         <form className="stack-form" onSubmit={sendRequest}>
           <label className="field">
             <span>Type</span>
             <select value={req.type} onChange={(e) => setReq({ ...req, type: e.target.value })}>
-              <option value="time-off">Time off</option>
+              <option value="leave">Leave</option>
               <option value="shift-change">Shift change</option>
               <option value="schedule-swap">Schedule swap</option>
             </select>

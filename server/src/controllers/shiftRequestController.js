@@ -1,5 +1,5 @@
 /**
- * CONTROLLER: shift requests (time off / shift changes)
+ * CONTROLLER: shift requests (leave / shift changes)
  */
 import ShiftRequest from '../models/ShiftRequest.js';
 import Notification from '../models/Notification.js';

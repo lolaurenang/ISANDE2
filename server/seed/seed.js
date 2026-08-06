@@ -154,7 +154,7 @@ async function run() {
 
   await ShiftRequest.create({
     requestedBy: byEmail['john@andoys.ph']._id,
-    type: 'time-off',
+    type: 'leave',
     workDate: toDateKey(dayOffset(7)),
     reason: 'Family obligation in Iloilo, back the next day.',
   });
@@ -162,7 +162,7 @@ async function run() {
   await Notification.create({
     recipient: manager._id,
     title: 'Shift request waiting',
-    message: 'John dela Cruz requested time-off',
+    message: 'John dela Cruz requested leave on ' + toDateKey(dayOffset(7)),
     type: 'request',
   });
 
