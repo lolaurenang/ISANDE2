@@ -54,7 +54,7 @@ const emptyJob = () => ({
   clientName: '',
   startDate: toDateKey(),
   endDate: toDateKey(),
-  assignedTo: '',
+  assignedTo: [],
   priority: 'normal',
 });
 
@@ -172,7 +172,11 @@ export default function Schedule() {
     clientName: job.clientName || '',
     startDate: toDateKey(job.startDate),
     endDate: toDateKey(job.endDate),
-    assignedTo: job.assignedTo?._id || job.assignedTo || '',
+    assignedTo: Array.isArray(job.assignedTo)
+  ? job.assignedTo.map((u) => u._id)
+  : job.assignedTo
+    ? [job.assignedTo._id || job.assignedTo]
+    : [],
     priority: job.priority || 'normal',
   });
 
@@ -633,9 +637,18 @@ export default function Schedule() {
           <label className="field">
             <span>Assigned to</span>
             <select
-              value={draft.assignedTo}
-              onChange={(e) => setDraft({ ...draft, assignedTo: e.target.value })}
-            >
+                multiple
+                value={draft.assignedTo}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    assignedTo: [...e.target.selectedOptions].map(
+                      (o) => o.value
+                    ),
+                  })
+                }
+                style={{ minHeight: 140 }}
+              >
               <option value="">Unassigned</option>
               {staff
                 .filter((person) => person.role !== 'manager')
