@@ -14,6 +14,28 @@ import EmptyState from '../components/EmptyState.jsx';
 import Spinner from '../components/Spinner.jsx';
 import { toDateKey, formatDate } from '../utils.js';
 
+const JOB_PERFORMED_OPTIONS = [
+  "Inspection / Diagnosis",
+  "General Repair",
+  "Engine Repair",
+  "Engine Tune-Up",
+  "Oil Change",
+  "Parts Replacement",
+  "Brake Service",
+  "Tire Service",
+  "Chain & Sprocket Service",
+  "Electrical Repair",
+  "Battery Replacement",
+  "Suspension Repair",
+  "Fuel System Service",
+  "Cooling System Service",
+  "Cleaning / Detailing",
+  "Quality Check / Test Ride",
+  "Waiting for Parts",
+  "Assisted Another Employee",
+  "Other"
+];
+
 const SERVICE_TYPES = [
   ['motorcycle-repair', 'Motorcycle repair'],
   ['bike-repair', 'Bike repair'],
@@ -51,7 +73,14 @@ export default function Schedule() {
   const [editingId, setEditingId] = useState(null);
 
   const [logTarget, setLogTarget] = useState(null);
-  const [logDraft, setLogDraft] = useState({ work: '', clientName: '' });
+  const [logDraft, setLogDraft] = useState({ work: [], otherWork: '' });
+
+  const [approvalTarget, setApprovalTarget] = useState(null);
+  const [approvalNotes, setApprovalNotes] = useState('');
+
+  const [detailTarget, setDetailTarget] = useState(null);
+  const [detailData, setDetailData] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -156,14 +185,103 @@ export default function Schedule() {
     }
   }
 
-  async function advance(job, status) {
+  async function markJobDone(job) {
+    setError('');
     try {
-      await jobsApi.update(job._id, { status });
-      setNotice(`"${job.title}" is now ${status}`);
+      await jobsApi.update(job._id, { status: 'completed' });
+      setNotice(`"${job.title}" marked as done`);
       await load();
     } catch (err) {
       setError(err.message);
     }
+  }
+
+  function openApprovalModal(job) {
+    setApprovalTarget(job);
+    setApprovalNotes('');
+  }
+
+  function closeApprovalModal() {
+    setApprovalTarget(null);
+    setApprovalNotes('');
+  }
+
+  async function submitForApproval(e) {
+    e.preventDefault();
+    setError('');
+    try {
+      await jobsApi.update(approvalTarget._id, {
+        status: 'for-approval',
+        additionalNotes: approvalNotes.trim(),
+      });
+      setNotice(`"${approvalTarget.title}" submitted for approval`);
+      closeApprovalModal();
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function openJobDetails(job) {
+    setDetailTarget(job);
+    setDetailData(null);
+    setDetailLoading(true);
+    try {
+      const res = await jobsApi.getDetails(job._id);
+      setDetailData(res.data);
+    } catch (err) {
+      setError(err.message);
+      setDetailTarget(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  function closeJobDetails() {
+    setDetailTarget(null);
+    setDetailData(null);
+  }
+
+  function renderJobActions(job) {
+    const isActive = !['completed', 'cancelled'].includes(job.status);
+    const canSubmit = !isManager && ['scheduled', 'in-progress'].includes(job.status);
+    const canLogWork = isActive && job.status !== 'for-approval';
+    const showDetails = ['for-approval', 'completed'].includes(job.status);
+
+    return (
+      <>
+        {isManager && job.status === 'for-approval' && (
+          <button type="button" className="btn btn-sm btn-dark" onClick={() => markJobDone(job)}>
+            Mark as done
+          </button>
+        )}
+        {canSubmit && (
+          <button type="button" className="btn btn-sm btn-dark" onClick={() => openApprovalModal(job)}>
+            Job done
+          </button>
+        )}
+        {canLogWork && (
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => openWorkLog(job)}>
+            Log work
+          </button>
+        )}
+        {showDetails && (
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => openJobDetails(job)}>
+            Details
+          </button>
+        )}
+        {isManager && (
+          <>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => openEdit(job)}>
+              Edit
+            </button>
+            <button type="button" className="btn btn-sm btn-danger" onClick={() => removeJob(job._id)}>
+              Remove
+            </button>
+          </>
+        )}
+      </>
+    );
   }
 
   async function claim(job) {
@@ -176,22 +294,53 @@ export default function Schedule() {
     }
   }
 
+  function openWorkLog(job) {
+    setLogTarget(job);
+    setLogDraft({ work: [], otherWork: '' });
+  }
+
+  function closeWorkLog() {
+    setLogTarget(null);
+    setLogDraft({ work: [], otherWork: '' });
+  }
+
   async function submitWorkLog(e) {
     e.preventDefault();
+    setError('');
+
+    const selectedJobs = Array.isArray(logDraft.work) ? logDraft.work : [];
+    const parts = selectedJobs.filter((item) => item !== 'Other');
+
+    if (selectedJobs.includes('Other')) {
+      const other = logDraft.otherWork.trim();
+      if (!other) {
+        setError('Describe what you did');
+        return;
+      }
+      parts.push(other);
+    }
+
+    const work = parts.join(', ');
+
     try {
-      await jobsApi.logWork(logTarget._id, logDraft);
+      await jobsApi.logWork(logTarget._id, { work });
       setNotice('Work logged');
-      setLogTarget(null);
-      setLogDraft({ work: '', clientName: '' });
+      closeWorkLog();
     } catch (err) {
-      setError(err.message);
+      const detail = err.details?.[0]?.message;
+      setError(detail || err.message);
     }
   }
 
   const todayKey = toDateKey();
   const todayJobs = jobs.filter((j) => toDateKey(j.startDate) <= todayKey && todayKey <= toDateKey(j.endDate));
+  const todayJobsDisplay = isManager
+    ? todayJobs.filter((j) => j.status !== 'for-approval')
+    : todayJobs;
   const upcoming = jobs.filter((j) => toDateKey(j.startDate) > todayKey);
   const open = jobs.filter((j) => !j.assignedTo && j.status === 'scheduled');
+  const pendingApproval = jobs.filter((j) => j.status === 'for-approval');
+  const selectedLogJobs = Array.isArray(logDraft.work) ? logDraft.work : [];
 
   if (loading && !jobs.length) return <Spinner label="Loading the schedule" />;
 
@@ -263,36 +412,29 @@ export default function Schedule() {
 
       {tab === 'jobs' && (
         <div className="schedule-stack">
+          {isManager && pendingApproval.length > 0 && (
+            <section>
+              <p className="section-label">Awaiting approval</p>
+              {pendingApproval.map((job) => (
+                <JobCard
+                  key={job._id}
+                  job={job}
+                  showAssignee
+                  actions={renderJobActions(job)}
+                />
+              ))}
+            </section>
+          )}
+
           <section>
             <p className="section-label">Today&rsquo;s schedule</p>
-            {todayJobs.length ? (
-              todayJobs.map((job) => (
+            {todayJobsDisplay.length ? (
+              todayJobsDisplay.map((job) => (
                 <JobCard
                   key={job._id}
                   job={job}
                   showAssignee={isManager}
-                  actions={
-                    <>
-                      {job.status !== 'completed' && (
-                        <button type="button" className="btn btn-sm btn-dark" onClick={() => advance(job, 'completed')}>
-                          Mark completed
-                        </button>
-                      )}
-                      <button type="button" className="btn btn-sm btn-ghost" onClick={() => setLogTarget(job)}>
-                        Log work
-                      </button>
-                      {isManager && (
-                        <>
-                          <button type="button" className="btn btn-sm btn-ghost" onClick={() => openEdit(job)}>
-                            Edit
-                          </button>
-                          <button type="button" className="btn btn-sm btn-danger" onClick={() => removeJob(job._id)}>
-                            Remove
-                          </button>
-                        </>
-                      )}
-                    </>
-                  }
+                  actions={renderJobActions(job)}
                 />
               ))
             ) : (
@@ -346,118 +488,155 @@ export default function Schedule() {
         </div>
       )}
 
-      <Modal
-        open={modalOpen}
-        title={editingId ? 'Edit job' : 'Add job'}
-        onClose={() => setModalOpen(false)}
-      >
-        <form className="stack-form" onSubmit={saveJob}>
+      <Modal open={Boolean(approvalTarget)} title="Job done" onClose={closeApprovalModal}>
+        <form className="stack-form" onSubmit={submitForApproval}>
+          <p className="help-text">
+            Submit this job for manager approval. Add any notes about the work below.
+          </p>
           <label className="field">
-            <span>Job title</span>
-            <input
-              value={draft.title}
-              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-              placeholder="Motorcycle repair"
-              required
-            />
-          </label>
-
-          <label className="field">
-            <span>Description</span>
+            <span>Additional Notes</span>
             <textarea
-              rows="3"
-              value={draft.description}
-              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-              placeholder="Inspect and replace the damaged clutch cable."
+              rows={4}
+              value={approvalNotes}
+              onChange={(e) => setApprovalNotes(e.target.value)}
+              placeholder="Anything the manager should know..."
             />
           </label>
-
-          <div className="field-row">
-            <label className="field">
-              <span>Service type</span>
-              <select
-                value={draft.serviceType}
-                onChange={(e) => setDraft({ ...draft, serviceType: e.target.value })}
-              >
-                {SERVICE_TYPES.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>Client</span>
-              <input
-                value={draft.clientName}
-                onChange={(e) => setDraft({ ...draft, clientName: e.target.value })}
-              />
-            </label>
-          </div>
-
-          <div className="field-row">
-            <label className="field">
-              <span>Starts</span>
-              <input
-                type="date"
-                value={draft.startDate}
-                onChange={(e) => setDraft({ ...draft, startDate: e.target.value })}
-                required
-              />
-            </label>
-            <label className="field">
-              <span>Ends</span>
-              <input
-                type="date"
-                value={draft.endDate}
-                onChange={(e) => setDraft({ ...draft, endDate: e.target.value })}
-                required
-              />
-            </label>
-          </div>
-
-          <label className="field">
-            <span>Assign to</span>
-            <select
-              value={draft.assignedTo}
-              onChange={(e) => setDraft({ ...draft, assignedTo: e.target.value })}
-            >
-              <option value="">Leave open for anyone to pick up</option>
-              {staff
-                .filter((s) => s.role !== 'manager')
-                .map((s) => (
-                  <option key={s._id} value={s._id}>
-                    {s.fullName} - {s.jobTitle}
-                  </option>
-                ))}
-            </select>
-          </label>
-
           <button className="btn btn-primary" type="submit">
-            {editingId ? 'Save changes' : 'Schedule job'}
+            Submit for approval
           </button>
         </form>
       </Modal>
 
-      <Modal open={Boolean(logTarget)} title="Log work" onClose={() => setLogTarget(null)}>
+      <Modal open={Boolean(detailTarget)} title="Job details" onClose={closeJobDetails}>
+        {detailLoading && <Spinner label="Loading details" />}
+        {!detailLoading && detailData && (
+          <dl className="detail-list">
+            <div>
+              <dt>Job</dt>
+              <dd>{detailData.job.title}</dd>
+            </div>
+            {detailData.workByEmployee.length ? (
+              detailData.workByEmployee.map(({ employeeName, work }) => (
+                <div key={employeeName}>
+                  <dt>Work Performed ({employeeName})</dt>
+                  <dd>
+                    <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+                      {work.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </dd>
+                </div>
+              ))
+            ) : (
+              <div>
+                <dt>Work Performed</dt>
+                <dd>No work logged yet</dd>
+              </div>
+            )}
+            <div>
+              <dt>Additional Notes</dt>
+              <dd>{detailData.additionalNotes || 'None'}</dd>
+            </div>
+          </dl>
+        )}
+      </Modal>
+
+      <Modal open={Boolean(logTarget)} title="Log work" onClose={closeWorkLog}>
         <form className="stack-form" onSubmit={submitWorkLog}>
-          <label className="field">
-            <span>What did you do?</span>
-            <input
-              value={logDraft.work}
-              onChange={(e) => setLogDraft({ ...logDraft, work: e.target.value })}
-              placeholder="Repaired wheels"
-              required
-            />
-          </label>
-          <label className="field">
-            <span>Client</span>
-            <input
-              value={logDraft.clientName}
-              onChange={(e) => setLogDraft({ ...logDraft, clientName: e.target.value })}
-              placeholder={logTarget?.clientName || 'Walk-in'}
-            />
-          </label>
+          <div className="field" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', textAlign: 'left' }}>
+            <span style={{ display: 'block', textAlign: 'left', marginBottom: '6px', fontWeight: '500' }}>
+              Jobs performed
+            </span>
+            <div 
+              style={{
+                maxHeight: '180px',
+                overflowY: 'auto',
+                overflowX: 'hidden',
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                backgroundColor: '#ffffff',
+                boxSizing: 'border-box',
+                width: '100%'
+              }}
+            >
+              {JOB_PERFORMED_OPTIONS.map((job) => {
+                const isChecked = selectedLogJobs.includes(job);
+
+                return (
+                  <div 
+                    key={job}
+                    onClick={() => {
+                      const updated = isChecked
+                        ? selectedLogJobs.filter((item) => item !== job)
+                        : [...selectedLogJobs, job];
+                      setLogDraft({
+                        ...logDraft,
+                        work: updated,
+                        otherWork: updated.includes('Other') ? logDraft.otherWork : '',
+                      });
+                    }}
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'flex-start',
+                      gap: '10px', 
+                      cursor: 'pointer', 
+                      width: '100%',
+                      margin: 0,
+                      padding: '4px 0',
+                      userSelect: 'none'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      readOnly
+                      style={{ 
+                        margin: 0, 
+                        padding: 0,
+                        cursor: 'pointer', 
+                        flexShrink: 0,
+                        width: '16px',
+                        height: '16px'
+                      }}
+                    />
+                    <span 
+                      style={{ 
+                        textAlign: 'left', 
+                        lineHeight: '1.3',
+                        margin: 0,
+                        padding: 0,
+                        fontSize: '14px',
+                        color: '#333333',
+                        display: 'inline',
+                        width: 'auto'
+                      }}
+                    >
+                      {job}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {selectedLogJobs.includes('Other') && (
+            <label className="field">
+              <span>Other</span>
+              <input
+                value={logDraft.otherWork}
+                onChange={(e) => setLogDraft({ ...logDraft, otherWork: e.target.value })}
+                placeholder="Describe what you did..."
+              />
+            </label>
+          )}
+
           <button className="btn btn-primary" type="submit">
             Save log
           </button>

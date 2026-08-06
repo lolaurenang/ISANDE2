@@ -20,7 +20,7 @@ export const SERVICE_TYPES = [
   'other',
 ];
 
-export const JOB_STATUS = ['scheduled', 'in-progress', 'completed', 'cancelled'];
+export const JOB_STATUS = ['scheduled', 'in-progress', 'for-approval', 'completed', 'cancelled'];
 export const JOB_PRIORITY = ['low', 'normal', 'high'];
 
 const serviceJobSchema = new mongoose.Schema(
@@ -83,6 +83,18 @@ const serviceJobSchema = new mongoose.Schema(
       default: 'normal',
     },
     completedAt: Date,
+    additionalNotes: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
+      default: '',
+    },
+    submittedAt: Date,
+    submittedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
   },
   { timestamps: true, toJSON: { virtuals: true } }
 );

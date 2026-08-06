@@ -59,9 +59,49 @@ export const listJobs = asyncHandler(async (req, res) => {
 export const getJob = asyncHandler(async (req, res) => {
   const job = await ServiceJob.findById(req.params.id)
     .populate('assignedTo', 'fullName jobTitle')
-    .populate('createdBy', 'fullName');
+    .populate('createdBy', 'fullName')
+    .populate('submittedBy', 'fullName');
   if (!job) throw ApiError.notFound('That job does not exist');
   res.json({ success: true, data: job });
+});
+
+/** Job completion summary: work logs grouped by employee plus submission notes. */
+export const getJobDetails = asyncHandler(async (req, res) => {
+  const job = await ServiceJob.findById(req.params.id)
+    .populate('assignedTo', 'fullName jobTitle')
+    .populate('submittedBy', 'fullName');
+  if (!job) throw ApiError.notFound('That job does not exist');
+
+  const workLogs = await ActivityLog.find({ relatedJob: job._id, type: 'work' })
+    .populate('employee', 'fullName')
+    .sort({ loggedAt: 1 });
+
+  const workByEmployee = [];
+  const grouped = new Map();
+
+  for (const log of workLogs) {
+    const name = log.employee?.fullName || 'Unknown';
+    if (!grouped.has(name)) grouped.set(name, new Set());
+    const items = grouped.get(name);
+    log.work
+      .split(', ')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .forEach((item) => items.add(item));
+  }
+
+  for (const [employeeName, items] of grouped) {
+    workByEmployee.push({ employeeName, work: [...items] });
+  }
+
+  res.json({
+    success: true,
+    data: {
+      job,
+      workByEmployee,
+      additionalNotes: job.additionalNotes || '',
+    },
+  });
 });
 
 export const createJob = asyncHandler(async (req, res) => {
@@ -114,7 +154,27 @@ export const updateJob = asyncHandler(async (req, res) => {
   } else if (isClaim) {
     fields = ['assignedTo', 'status'];
   } else {
-    fields = ['status', 'description'];
+    fields = ['status', 'description', 'additionalNotes'];
+  }
+
+  const previousStatus = job.status;
+  const requestedStatus = req.body.status;
+
+  if (requestedStatus !== undefined && requestedStatus !== job.status) {
+    if (!isManager) {
+      if (requestedStatus === 'completed') {
+        throw ApiError.forbidden('Only a manager can mark a job as done');
+      }
+      if (requestedStatus === 'for-approval') {
+        if (!['scheduled', 'in-progress'].includes(job.status)) {
+          throw ApiError.badRequest('This job cannot be submitted for approval');
+        }
+      } else if (requestedStatus !== 'in-progress') {
+        throw ApiError.forbidden('You cannot set that status');
+      }
+    } else if (requestedStatus === 'completed' && job.status === 'for-approval') {
+      // manager approving a submitted job
+    }
   }
 
   const previousAssignee = String(job.assignedTo || '');
@@ -135,8 +195,39 @@ export const updateJob = asyncHandler(async (req, res) => {
     }
   }
 
+  if (job.status === 'for-approval' && previousStatus !== 'for-approval') {
+    job.submittedAt = new Date();
+    job.submittedBy = req.user.id;
+  }
+
   if (job.status === 'completed' && !job.completedAt) job.completedAt = new Date();
   await job.save();
+
+  if (job.status === 'for-approval' && previousStatus !== 'for-approval') {
+    const managers = await User.find({ role: 'manager', isActive: true }).select('_id');
+    const submitter = await User.findById(req.user.id).select('fullName');
+    await Promise.all(
+      managers.map((mgr) =>
+        Notification.create({
+          recipient: mgr._id,
+          title: 'Job ready for approval',
+          message: `"${job.title}" was submitted by ${submitter?.fullName || 'an employee'}`,
+          type: 'schedule-change',
+          relatedJob: job._id,
+        })
+      )
+    );
+  }
+
+  if (job.status === 'completed' && previousStatus === 'for-approval' && job.assignedTo) {
+    await Notification.create({
+      recipient: job.assignedTo,
+      title: 'Job approved',
+      message: `"${job.title}" has been marked as done`,
+      type: 'schedule-change',
+      relatedJob: job._id,
+    });
+  }
 
   const newAssignee = String(job.assignedTo || '');
   if (newAssignee && newAssignee !== previousAssignee) {

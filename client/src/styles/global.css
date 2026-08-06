@@ -583,6 +583,7 @@ a:hover { text-decoration: underline; }
 .status-off-duty, .status-scheduled, .status-pending, .status-late {
   background: var(--gray-100); color: var(--gray-700);
 }
+.status-for-approval { background: #fef3c7; color: #b45309; }
 
 /* ----------------------------- chips ----------------------------- */
 .chip-list { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
