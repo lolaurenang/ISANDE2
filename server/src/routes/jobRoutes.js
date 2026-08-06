@@ -5,6 +5,7 @@ import { protect, authorize } from '../middleware/auth.js';
 import {
   listJobs,
   getJob,
+  getJobDetails,
   createJob,
   updateJob,
   deleteJob,
@@ -17,6 +18,7 @@ router.use(protect);
 
 router.get('/', listJobs);
 router.get('/suggest', authorize('manager'), suggestAssignees);
+router.get('/:id/details', getJobDetails);
 router.get('/:id', getJob);
 
 router.post(

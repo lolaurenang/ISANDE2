@@ -77,6 +77,8 @@ export const dashboardApi = {
 
 export const jobsApi = {
   list: (params) => api.get('/jobs', params),
+  get: (id) => api.get(`/jobs/${id}`),
+  getDetails: (id) => api.get(`/jobs/${id}/details`),
   create: (body) => api.post('/jobs', body),
   update: (id, body) => api.patch(`/jobs/${id}`, body),
   remove: (id) => api.delete(`/jobs/${id}`),
