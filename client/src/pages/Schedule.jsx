@@ -163,6 +163,23 @@ export default function Schedule() {
     setModalOpen(true);
   }
 
+  function openEdit(job) {
+  setDraft({
+    title: job.title || '',
+    description: job.description || '',
+    serviceType: job.serviceType || 'motorcycle-repair',
+    otherService: job.otherService || '',
+    clientName: job.clientName || '',
+    startDate: toDateKey(job.startDate),
+    endDate: toDateKey(job.endDate),
+    assignedTo: job.assignedTo?._id || job.assignedTo || '',
+    priority: job.priority || 'normal',
+  });
+
+  setEditingId(job._id);
+  setModalOpen(true);
+}
+
   async function saveJob(e) {
     e.preventDefault();
     setError('');
@@ -281,9 +298,13 @@ export default function Schedule() {
         )}
         {isManager && (
           <>
-            <button type="button" className="btn btn-sm btn-ghost" onClick={() => openWorkLogForManager(job)}>
-              Edit
-            </button>
+            <button
+            type="button"
+            className="btn btn-sm btn-ghost"
+            onClick={() => openEdit(job)}
+          >
+            Edit
+          </button>
             <button type="button" className="btn btn-sm btn-danger" onClick={() => removeJob(job._id)}>
               Remove
             </button>
@@ -531,7 +552,7 @@ export default function Schedule() {
                   actions={
                     isManager && (
                       <>
-                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => openWorkLogForManager(job)}>
+                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => openEdit(job)}>
                           Edit
                         </button>
                         <button type="button" className="btn btn-sm btn-danger" onClick={() => removeJob(job._id)}>
@@ -549,7 +570,9 @@ export default function Schedule() {
         </div>
       )}
 
-      <Modal open={modalOpen} title="Add job" onClose={() => setModalOpen(false)}>
+      <Modal
+    open={modalOpen}
+    title={editingId ? "Edit job" : "Add job"} onClose={() => setModalOpen(false)}>
         <form className="stack-form" onSubmit={saveJob}>
           <label className="field">
             <span>Title</span>
@@ -624,7 +647,7 @@ export default function Schedule() {
             </select>
           </label>
           <button className="btn btn-primary" type="submit">
-            Schedule job
+            {editingId ? "Save changes" : "Schedule job"}
           </button>
         </form>
       </Modal>
@@ -658,7 +681,12 @@ export default function Schedule() {
               <dd>{detailData.job.title}</dd>
             </div>
             {detailData.workByEmployee.length ? (
-              detailData.workByEmployee.map(({ employeeName, work }) => (
+              detailData.workByEmployee
+              .filter(
+                ({ employeeName }) =>
+                  employeeName === detailData.job.assignedTo?.fullName
+              )
+              .map(({ employeeName, work }) => (
                 <div key={employeeName}>
                   <dt>Work Performed ({employeeName})</dt>
                   <dd>
@@ -684,7 +712,7 @@ export default function Schedule() {
         )}
       </Modal>
 
-      <Modal open={Boolean(logTarget)} title={isManager ? 'Edit job' : 'Log work'} onClose={closeWorkLog}>
+      <Modal open={Boolean(logTarget)} title="Log work" onClose={closeWorkLog}>
         <form className="stack-form" onSubmit={submitWorkLog}>
           {isManager && (
             <>
