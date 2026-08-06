@@ -6,6 +6,7 @@ import Notification from '../models/Notification.js';
 import User from '../models/User.js';
 import ApiError from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import Availability from "../models/Availability.js";
 
 export const listRequests = asyncHandler(async (req, res) => {
   const filter = {};
@@ -51,6 +52,26 @@ export const reviewRequest = asyncHandler(async (req, res) => {
   request.reviewedAt = new Date();
   request.reviewNote = reviewNote || '';
   await request.save();
+  
+  if (status === "approved" && request.type === "leave") {
+  await Availability.findOneAndUpdate(
+    {
+      employee: request.requestedBy,
+      workDate: request.workDate,
+    },
+    {
+      employee: request.requestedBy,
+      workDate: request.workDate,
+      isAvailable: false,
+      note: "Approved Leave",
+    },
+    {
+      upsert: true,
+      new: true,
+      setDefaultsOnInsert: true,
+    }
+  );
+}
 
   await Notification.create({
     recipient: request.requestedBy,
