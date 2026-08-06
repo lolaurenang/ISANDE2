@@ -78,24 +78,40 @@ export default function Home() {
       <Banner message={error} onDismiss={() => setError('')} />
       <Banner tone="success" message={notice} onDismiss={() => setNotice('')} />
 
-      <section className="clock-card">
-        <div>
-          <p className="clock-label">Your shift</p>
-          <p className="clock-value">
-            {attendance?.clockIn ? `In at ${formatTime(attendance.clockIn)}` : 'Not clocked in yet'}
-            {attendance?.clockOut ? ` - out at ${formatTime(attendance.clockOut)}` : ''}
-          </p>
-          {attendance?.status === 'late' && <p className="clock-note">Marked late</p>}
-        </div>
-        <button
-          type="button"
-          className={`btn ${isOpenShift ? 'btn-dark' : 'btn-primary'}`}
-          onClick={toggleClock}
-          disabled={busy || isDone}
-        >
-          {isDone ? 'Shift finished' : isOpenShift ? 'Clock out' : 'Clock in'}
-        </button>
-      </section>
+      {!isManager && (
+        <section className="clock-card">
+          <div>
+            <p className="clock-label">Your shift</p>
+
+            <p className="clock-value">
+              {attendance?.clockIn
+                ? `In at ${formatTime(attendance.clockIn)}`
+                : "Not clocked in yet"}
+
+              {attendance?.clockOut
+                ? ` - out at ${formatTime(attendance.clockOut)}`
+                : ""}
+            </p>
+
+            {attendance?.status === "late" && (
+              <p className="clock-note">Marked late</p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className={`btn ${isOpenShift ? "btn-dark" : "btn-primary"}`}
+            onClick={toggleClock}
+            disabled={busy || isDone}
+          >
+            {isDone
+              ? "Shift finished"
+              : isOpenShift
+              ? "Clock out"
+              : "Clock in"}
+          </button>
+        </section>
+)}
 
       <div className="home-grid">
         <div>
