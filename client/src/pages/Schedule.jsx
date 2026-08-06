@@ -664,7 +664,6 @@ export default function Schedule() {
       fontWeight: "500",
     }}
   >
-    Assigned to
   </span>
 
   <div
@@ -684,7 +683,8 @@ export default function Schedule() {
     }}
   >
     {staff
-      .filter((person) => person.role !== "manager")
+      .filter((person) => person.role !== "manager" &&
+      person.jobTitle?.toLowerCase() === "mechanic")
       .map((person) => {
         const checked = draft.assignedTo.includes(person._id);
 
@@ -827,7 +827,8 @@ export default function Schedule() {
                 >
                   <option value="">Unassigned</option>
                   {staff
-                    .filter((person) => person.role !== 'manager')
+                    .filter((person) => person.role !== 'manager' &&
+                    person.jobTitle?.toLowerCase() === "mechanic")
                     .map((person) => (
                       <option key={person._id} value={person._id}>
                         {person.fullName}
