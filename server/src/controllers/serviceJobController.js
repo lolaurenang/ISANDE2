@@ -105,28 +105,37 @@ export const getJobDetails = asyncHandler(async (req, res) => {
 });
 
 export const createJob = asyncHandler(async (req, res) => {
-  const { assignedTo, startDate, endDate } = req.body;
+const { assignedTo = [], startDate, endDate } = req.body;
 
-  if (assignedTo) {
-    const conflicts = await findConflicts({ employee: assignedTo, startDate, endDate });
-    if (conflicts.length) {
-      throw ApiError.conflict(
-        `That mechanic already has "${conflicts[0].title}" booked for those dates`,
-        conflicts
-      );
-    }
+for (const employee of assignedTo) {
+  const conflicts = await findConflicts({
+    employee,
+    startDate,
+    endDate,
+  });
+
+  if (conflicts.length) {
+    throw ApiError.conflict(
+      `That mechanic already has "${conflicts[0].title}" booked for those dates`,
+      conflicts
+    );
   }
+}
 
   const job = await ServiceJob.create({ ...req.body, createdBy: req.user.id });
 
-  if (job.assignedTo) {
-    await Notification.create({
-      recipient: job.assignedTo,
-      title: 'New job assigned',
-      message: `${job.title} - ${fmt(job.startDate)}`,
-      type: 'assignment',
-      relatedJob: job._id,
-    });
+  if (job.assignedTo?.length) {
+    await Promise.all(
+      job.assignedTo.map((id) =>
+        Notification.create({
+          recipient: id,
+          title: 'New job assigned',
+          message: `${job.title} - ${fmt(job.startDate)}`,
+          type: 'assignment',
+          relatedJob: job._id,
+        })
+      )
+    );
   }
 
   await job.populate('assignedTo', 'fullName jobTitle');
@@ -177,23 +186,32 @@ export const updateJob = asyncHandler(async (req, res) => {
     }
   }
 
-  const previousAssignee = String(job.assignedTo || '');
+  const previousAssignees = job.assignedTo.map(String);
 
   for (const key of fields) {
     if (req.body[key] !== undefined) job[key] = req.body[key];
   }
 
-  if (job.assignedTo && (req.body.startDate || req.body.endDate || req.body.assignedTo)) {
+if (
+  job.assignedTo?.length &&
+  (req.body.startDate || req.body.endDate || req.body.assignedTo)
+) {
+  for (const employee of job.assignedTo) {
     const conflicts = await findConflicts({
-      employee: job.assignedTo,
+      employee,
       startDate: job.startDate,
       endDate: job.endDate,
       excludeId: job._id,
     });
+
     if (conflicts.length) {
-      throw ApiError.conflict(`That change clashes with "${conflicts[0].title}"`, conflicts);
+      throw ApiError.conflict(
+        `That change clashes with "${conflicts[0].title}"`,
+        conflicts
+      );
     }
   }
+}
 
   if (job.status === 'for-approval' && previousStatus !== 'for-approval') {
     job.submittedAt = new Date();
@@ -219,35 +237,37 @@ export const updateJob = asyncHandler(async (req, res) => {
     );
   }
 
-  if (job.status === 'completed' && previousStatus === 'for-approval' && job.assignedTo) {
-    await Notification.create({
-      recipient: job.assignedTo,
-      title: 'Job approved',
-      message: `"${job.title}" has been marked as done`,
-      type: 'schedule-change',
-      relatedJob: job._id,
-    });
-  }
+  if (
+  job.status === 'completed' &&
+  previousStatus === 'for-approval' &&
+  job.assignedTo.length
+) {
+  await Promise.all(
+    job.assignedTo.map((id) =>
+      Notification.create({
+        recipient: id,
+        title: 'Job approved',
+        message: `"${job.title}" has been marked as done`,
+        type: 'schedule-change',
+        relatedJob: job._id,
+      })
+    )
+  );
+}
 
-  const newAssignee = String(job.assignedTo || '');
-  if (newAssignee && newAssignee !== previousAssignee) {
-    await Notification.create({
-      recipient: job.assignedTo,
-      title: 'New job assigned',
-      message: `${job.title} - ${fmt(job.startDate)}`,
-      type: 'assignment',
-      relatedJob: job._id,
-    });
-  } else if (newAssignee) {
-    await Notification.create({
-      recipient: job.assignedTo,
-      title: 'Job updated',
-      message: `${job.title} is now ${job.status}`,
-      type: 'schedule-change',
-      relatedJob: job._id,
-    });
-  }
-
+if (job.assignedTo.length) {
+  await Promise.all(
+    job.assignedTo.map((id) =>
+      Notification.create({
+        recipient: id,
+        title: 'Job updated',
+        message: `${job.title} is now ${job.status}`,
+        type: 'schedule-change',
+        relatedJob: job._id,
+      })
+    )
+  );
+}
   await job.populate('assignedTo', 'fullName jobTitle');
   res.json({ success: true, message: 'Job updated', data: job });
 });
@@ -256,14 +276,18 @@ export const deleteJob = asyncHandler(async (req, res) => {
   const job = await ServiceJob.findByIdAndDelete(req.params.id);
   if (!job) throw ApiError.notFound('That job does not exist');
 
-  if (job.assignedTo) {
-    await Notification.create({
-      recipient: job.assignedTo,
-      title: 'Job cancelled',
-      message: `${job.title} on ${fmt(job.startDate)} was removed from your schedule`,
-      type: 'schedule-change',
-    });
-  }
+  if (job.assignedTo.length) {
+  await Promise.all(
+    job.assignedTo.map((id) =>
+      Notification.create({
+        recipient: id,
+        title: 'Job cancelled',
+        message: `${job.title} on ${fmt(job.startDate)} was removed from your schedule`,
+        type: 'schedule-change',
+      })
+    )
+  );
+}
 
   res.json({ success: true, message: 'Job removed' });
 });

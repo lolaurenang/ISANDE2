@@ -21,10 +21,15 @@ export default function JobCard({ job, onClick, showAssignee = false, actions })
       <div className="job-meta">
         {job.clientName && <span>Client: {job.clientName}</span>}
         {showAssignee && (
-          <span>{job.assignedTo ? `Assigned to ${job.assignedTo.fullName}` : 'Unassigned'}</span>
+          <span>
+            {Array.isArray(job.assignedTo) && job.assignedTo.length
+              ? `Assigned to ${job.assignedTo
+                  .map((person) => person.fullName)
+                  .join(', ')}`
+              : 'Unassigned'}
+          </span>
         )}
       </div>
-
       {actions && <div className="job-actions">{actions}</div>}
     </Wrapper>
   );

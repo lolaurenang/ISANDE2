@@ -61,12 +61,10 @@ const serviceJobSchema = new mongoose.Schema(
         message: 'End date cannot be before the start date',
       },
     },
-    assignedTo: {
+      assignedTo: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      default: null,
-      index: true,
-    },
+    }],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

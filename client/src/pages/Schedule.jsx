@@ -320,7 +320,10 @@ export default function Schedule() {
 
   async function claim(job) {
     try {
-      await jobsApi.update(job._id, { assignedTo: user.id, status: 'in-progress' });
+      await jobsApi.update(job._id, {
+      assignedTo: [user.id],
+      status: 'in-progress',
+    });
       setNotice(`You picked up "${job.title}"`);
       await load();
     } catch (err) {
@@ -332,7 +335,9 @@ export default function Schedule() {
     const draft = {
       ...emptyLogDraft(),
       clientName: job.clientName || '',
-      assignedTo: job.assignedTo?._id || job.assignedTo || '',
+      assignedTo: Array.isArray(job.assignedTo)
+  ? job.assignedTo.map((u) => u._id)
+  : [],
     };
 
     try {
@@ -341,11 +346,15 @@ export default function Schedule() {
 
       let workItems = [];
       if (isManager) {
-        const assigneeName = job.assignedTo?.fullName;
-        const employeeEntry = workByEmployee.find((entry) => entry.employeeName === assigneeName);
-        workItems = employeeEntry?.work?.length
-          ? employeeEntry.work
-          : workByEmployee.flatMap((entry) => entry.work);
+        const assigneeNames = Array.isArray(job.assignedTo)
+        ? job.assignedTo.map((u) => u.fullName)
+        : [];
+        const employeeEntry = workByEmployee.filter(
+        (entry) => assigneeNames.includes(entry.employeeName)
+      );
+        workItems = employeeEntry.length
+      ? employeeEntry.flatMap((entry) => entry.work)
+      : workByEmployee.flatMap((entry) => entry.work);
       } else {
         const myEntry = workByEmployee.find((entry) => entry.employeeName === user.fullName);
         workItems = myEntry?.work || [];
@@ -424,7 +433,8 @@ export default function Schedule() {
     ? todayJobs.filter((j) => j.status !== 'for-approval')
     : todayJobs;
   const upcoming = jobs.filter((j) => toDateKey(j.startDate) > todayKey);
-  const open = jobs.filter((j) => !j.assignedTo && j.status === 'scheduled');
+  const open = jobs.filter(
+  (j) => (!j.assignedTo || j.assignedTo.length === 0) && j.status === 'scheduled');  
   const pendingApproval = jobs.filter((j) => j.status === 'for-approval');
   const selectedLogJobs = Array.isArray(logDraft.work) ? logDraft.work : [];
 
@@ -634,31 +644,104 @@ export default function Schedule() {
               />
             </label>
           </div>
-          <label className="field">
-            <span>Assigned to</span>
-            <select
-                multiple
-                value={draft.assignedTo}
-                onChange={(e) =>
-                  setDraft({
-                    ...draft,
-                    assignedTo: [...e.target.selectedOptions].map(
-                      (o) => o.value
-                    ),
-                  })
-                }
-                style={{ minHeight: 140 }}
-              >
-              <option value="">Unassigned</option>
-              {staff
-                .filter((person) => person.role !== 'manager')
-                .map((person) => (
-                  <option key={person._id} value={person._id}>
-                    {person.fullName}
-                  </option>
-                ))}
-            </select>
-          </label>
+          <div className="field">
+  <span>Assign mechanics</span>
+
+  <div
+  className="field"
+  style={{
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    textAlign: "left",
+  }}
+>
+  <span
+    style={{
+      display: "block",
+      textAlign: "left",
+      marginBottom: "6px",
+      fontWeight: "500",
+    }}
+  >
+    Assigned to
+  </span>
+
+  <div
+    style={{
+      maxHeight: "180px",
+      overflowY: "auto",
+      overflowX: "hidden",
+      border: "1px solid #d1d5db",
+      borderRadius: "8px",
+      padding: "8px 12px",
+      display: "flex",
+      flexDirection: "column",
+      gap: "6px",
+      backgroundColor: "#ffffff",
+      boxSizing: "border-box",
+      width: "100%",
+    }}
+  >
+    {staff
+      .filter((person) => person.role !== "manager")
+      .map((person) => {
+        const checked = draft.assignedTo.includes(person._id);
+
+        return (
+          <div
+            key={person._id}
+            onClick={() =>
+              setDraft({
+                ...draft,
+                assignedTo: checked
+                  ? draft.assignedTo.filter((id) => id !== person._id)
+                  : [...draft.assignedTo, person._id],
+              })
+            }
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              cursor: "pointer",
+              width: "100%",
+              padding: "4px 0",
+              userSelect: "none",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              readOnly
+              style={{
+                margin: 0,
+                width: "16px",
+                height: "16px",
+                flexShrink: 0,
+              }}
+            />
+
+            <span
+              style={{
+                fontSize: "14px",
+                color: "#333",
+                lineHeight: "1.3",
+              }}
+            >
+              {person.fullName}
+            </span>
+          </div>
+        );
+      })}
+  </div>
+</div>
+
+  {draft.assignedTo.length === 0 && (
+    <small className="help-text">
+      No mechanics selected (job will remain unassigned)
+    </small>
+  )}
+</div>
           <button className="btn btn-primary" type="submit">
             {editingId ? "Save changes" : "Schedule job"}
           </button>
@@ -695,10 +778,11 @@ export default function Schedule() {
             </div>
             {detailData.workByEmployee.length ? (
               detailData.workByEmployee
-              .filter(
-                ({ employeeName }) =>
-                  employeeName === detailData.job.assignedTo?.fullName
+              .filter(({ employeeName }) =>
+              detailData.job.assignedTo?.some(
+                (user) => user.fullName === employeeName
               )
+            )
               .map(({ employeeName, work }) => (
                 <div key={employeeName}>
                   <dt>Work Performed ({employeeName})</dt>
@@ -737,8 +821,6 @@ export default function Schedule() {
                   required
                 />
               </label>
-              <label className="field">
-                <span>Assigned to</span>
                 <select
                   value={logDraft.assignedTo}
                   onChange={(e) => setLogDraft({ ...logDraft, assignedTo: e.target.value })}
@@ -752,7 +834,6 @@ export default function Schedule() {
                       </option>
                     ))}
                 </select>
-              </label>
             </>
           )}
           <div className="field" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', textAlign: 'left' }}>
