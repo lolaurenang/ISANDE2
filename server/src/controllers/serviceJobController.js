@@ -38,6 +38,10 @@ export const listJobs = asyncHandler(async (req, res) => {
   }
 
   if (status) filter.status = status;
+  // Hide finished jobs from the calendar/schedule by default.
+  if (!status) {
+  filter.status = { $ne: 'completed' };
+}
   if (unassigned === 'true') filter.assignedTo = null;
 
   // Managers see the whole shop; everyone else sees their own jobs

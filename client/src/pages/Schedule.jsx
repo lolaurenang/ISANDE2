@@ -137,25 +137,6 @@ export default function Schedule() {
     load();
   }, [load]);
 
-  /* ------------------------------- availability ------------------------------ */
-  const myKeys = slots.filter((s) => s.isAvailable).map((s) => s.workDate);
-
-  async function toggleDay(key) {
-    setError('');
-    try {
-      if (myKeys.includes(key)) {
-        await availabilityApi.remove(key);
-        setNotice(`Removed ${formatDate(key)} from your availability`);
-      } else {
-        await availabilityApi.set({ workDate: key });
-        setNotice(`You are marked available on ${formatDate(key)}`);
-      }
-      await load();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
   /* ---------------------------------- jobs ---------------------------------- */
   function openNew() {
     setDraft(emptyJob());
@@ -452,15 +433,11 @@ export default function Schedule() {
       </div>
 
       <div className="tabs">
-        <button type="button" className={tab === 'jobs' ? 'active' : ''} onClick={() => setTab('jobs')}>
-          Jobs
-        </button>
         <button
           type="button"
-          className={tab === 'availability' ? 'active' : ''}
-          onClick={() => setTab('availability')}
+          className="active"
         >
-          Availability
+          Jobs
         </button>
       </div>
 
