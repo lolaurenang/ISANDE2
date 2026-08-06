@@ -1,10 +1,9 @@
 /**
- * Seed script - fills an empty database with the staff, jobs and logs
- * from the ISANDE1 prototype so the app has something to show on the
- * first run and during the demo.
+ * Seed script - fills an empty database with staff, jobs, attendance,
+ * availability, logs, notifications, and leave requests for demo use.
  *
- *   npm run seed          add demo data (skips if users already exist)
- *   npm run seed:reset    wipe the collections first, then add
+ *   npm run seed
+ *   npm run seed:reset
  */
 import 'dotenv/config';
 import mongoose from 'mongoose';
@@ -22,20 +21,199 @@ const RESET = process.argv.includes('--reset');
 const PASSWORD = 'andoys123';
 
 const staff = [
-  { fullName: 'Alen Mariano D. Garcia', email: 'manager@andoys.ph', role: 'manager', jobTitle: 'Manager', department: 'Management', phone: '0997 123 4567' },
-  { fullName: 'John dela Cruz', email: 'john@andoys.ph', role: 'mechanic', jobTitle: 'Mechanic', department: 'Mechanic', phone: '0912 111 2222' },
-  { fullName: 'Mark Perez', email: 'mark@andoys.ph', role: 'mechanic', jobTitle: 'Mechanic', department: 'Mechanic', phone: '0912 333 4444' },
-  { fullName: 'Antonio Santos', email: 'antonio@andoys.ph', role: 'mechanic', jobTitle: 'Mechanic', department: 'Mechanic', phone: '0992 123 4567' },
-  { fullName: 'Alex Reyes', email: 'alex@andoys.ph', role: 'staff', jobTitle: 'Driver', department: 'Others', phone: '0912 555 6666' },
-  { fullName: 'Charmaine Lim', email: 'charmaine@andoys.ph', role: 'staff', jobTitle: 'Cashier', department: 'Sales', phone: '0912 777 8888' },
+  {
+    fullName: 'Andro Von Galon',
+    email: 'manager@andoys.ph',
+    role: 'manager',
+    jobTitle: 'Owner/Manager',
+    department: 'Management',
+    phone: '0917 100 0001',
+  },
+  {
+    fullName: 'Charmaine',
+    email: 'charmaine@andoys.ph',
+    role: 'staff',
+    jobTitle: 'Cashier',
+    department: 'Sales',
+    phone: '0917 100 0002',
+  },
+  {
+    fullName: 'Loida',
+    email: 'loida@andoys.ph',
+    role: 'staff',
+    jobTitle: 'Sales Associate',
+    department: 'Sales',
+    phone: '0917 100 0003',
+  },
+  {
+    fullName: 'Dannilyn',
+    email: 'dannilyn@andoys.ph',
+    role: 'staff',
+    jobTitle: 'Sales Associate',
+    department: 'Sales',
+    phone: '0917 100 0004',
+  },
+  {
+    fullName: 'Charles David',
+    email: 'charlesdavid@andoys.ph',
+    role: 'staff',
+    jobTitle: 'Marketing Associate',
+    department: 'Marketing',
+    phone: '0917 100 0005',
+  },
+  {
+    fullName: 'Ferdiand',
+    email: 'ferdiand@andoys.ph',
+    role: 'staff',
+    jobTitle: 'Driver',
+    department: 'Marketing',
+    phone: '0917 100 0006',
+  },
+  {
+    fullName: 'Jethro',
+    email: 'jethro@andoys.ph',
+    role: 'mechanic',
+    jobTitle: 'Mechanic',
+    department: 'Mechanic',
+    phone: '0917 100 0007',
+  },
+  {
+    fullName: 'Donifer',
+    email: 'donifer@andoys.ph',
+    role: 'mechanic',
+    jobTitle: 'Mechanic',
+    department: 'Mechanic',
+    phone: '0917 100 0008',
+  },
+  {
+    fullName: 'Joven',
+    email: 'joven@andoys.ph',
+    role: 'mechanic',
+    jobTitle: 'Mechanic',
+    department: 'Mechanic',
+    phone: '0917 100 0009',
+  },
+  {
+    fullName: 'Rock John',
+    email: 'rockjohn@andoys.ph',
+    role: 'staff',
+    jobTitle: 'Accounting Staff',
+    department: 'Accounting',
+    phone: '0917 100 0010',
+  },
 ];
 
-const dayOffset = (n) => {
-  const d = new Date();
+const mechanicEmails = ['jethro@andoys.ph', 'donifer@andoys.ph', 'joven@andoys.ph'];
+
+const clients = [
+  'Ramon Villareal',
+  'Liza Gamboa',
+  'Dodong Serrano',
+  'Marlon Dela Peña',
+  'Crisanto Neri',
+  'Benedicto Alonzo',
+  'Arnel Cabrera',
+  'Jasper Medina',
+  'Julius Salazar',
+  'Orlando Tapia',
+  'Nestor Quinto',
+  'Rafael Buan',
+  'Isidro Mercado',
+  'Leo Bautista',
+  'Jomar Reyes',
+  'Alvin Torres',
+  'Edwin Castillo',
+  'Rico Navarro',
+];
+
+const serviceTemplates = [
+  {
+    title: 'Motorcycle Repair',
+    serviceType: 'motorcycle-repair',
+    description: 'Inspect the clutch assembly, replace worn components, and test road performance.',
+    priority: 'high',
+  },
+  {
+    title: 'Bike Repair',
+    serviceType: 'bike-repair',
+    description: 'Adjust the brakes, true the wheels, and secure loose bolts for safe riding.',
+    priority: 'normal',
+  },
+  {
+    title: 'Engine Tune-up',
+    serviceType: 'engine-tuneup',
+    description: 'Perform a full tune-up, clean the fuel system, and verify engine timing.',
+    priority: 'high',
+  },
+  {
+    title: 'Motorcycle Repair',
+    serviceType: 'motorcycle-repair',
+    description: 'Replace worn brake pads, inspect the rotor, and recheck brake response.',
+    priority: 'normal',
+  },
+  {
+    title: 'Bike Repair',
+    serviceType: 'bike-repair',
+    description: 'Repair punctured tubes, align the handlebars, and check tire pressure.',
+    priority: 'low',
+  },
+  {
+    title: 'Engine Tune-up',
+    serviceType: 'engine-tuneup',
+    description: 'Clean the carburetor and spark plugs, then test idle smoothness.',
+    priority: 'normal',
+  },
+  {
+    title: 'Supplier Delivery',
+    serviceType: 'supplier-delivery',
+    description: 'Receive and verify spare parts delivery, then record the items against the order.',
+    priority: 'low',
+  },
+  {
+    title: 'Motorcycle Repair',
+    serviceType: 'motorcycle-repair',
+    description: 'Fix chain slack, lubricate the drivetrain, and check gear shifting.',
+    priority: 'high',
+  },
+  {
+    title: 'Bike Repair',
+    serviceType: 'bike-repair',
+    description: 'Inspect the frame, adjust the seat post, and tighten the pedal assembly.',
+    priority: 'normal',
+  },
+  {
+    title: 'Engine Tune-up',
+    serviceType: 'engine-tuneup',
+    description: 'Conduct a preventive maintenance check and confirm the fuel injection response.',
+    priority: 'high',
+  },
+  {
+    title: 'Supplier Delivery',
+    serviceType: 'supplier-delivery',
+    description: 'Sort received stock, verify quantities, and prepare items for storage.',
+    priority: 'normal',
+  },
+  {
+    title: 'Motorcycle Repair',
+    serviceType: 'motorcycle-repair',
+    description: 'Diagnose unusual engine noise and replace damaged bearings if needed.',
+    priority: 'high',
+  },
+];
+
+const dayOffset = (base, n) => {
+  const d = new Date(base);
   d.setDate(d.getDate() + n);
-  d.setHours(9, 0, 0, 0);
   return d;
 };
+
+const setTime = (date, h, m) => {
+  const d = new Date(date);
+  d.setHours(h, m, 0, 0);
+  return d;
+};
+
+const isSunday = (date) => date.getDay() === 0;
 
 async function run() {
   await connectDB();
@@ -59,116 +237,243 @@ async function run() {
     return;
   }
 
-  // User.create() runs the pre-save hook, so passwords are hashed.
-  const created = await User.create(staff.map((s) => ({ ...s, password: PASSWORD })));
-  const byEmail = Object.fromEntries(created.map((u) => [u.email, u]));
+  const createdUsers = await User.create(
+    staff.map((s) => ({
+      ...s,
+      password: PASSWORD,
+    }))
+  );
+
+  const byEmail = Object.fromEntries(createdUsers.map((u) => [u.email, u]));
   const manager = byEmail['manager@andoys.ph'];
-  console.log(`[seed] ${created.length} accounts created (password: ${PASSWORD})`);
 
-  await ServiceJob.create([
-    {
-      title: 'Motorcycle Repair',
-      description: 'Inspect and replace the damaged clutch cable to restore smooth gear shifting.',
-      serviceType: 'motorcycle-repair',
-      clientName: 'Ramon Villareal',
-      startDate: dayOffset(0),
-      endDate: dayOffset(2),
-      assignedTo: byEmail['antonio@andoys.ph']._id,
-      createdBy: manager._id,
-      status: 'in-progress',
-      priority: 'high',
-    },
-    {
-      title: 'Bike Repair',
-      description: 'Tighten the loose brake cables and adjust the brake pads for proper alignment.',
-      serviceType: 'bike-repair',
-      clientName: 'Liza Gamboa',
-      startDate: dayOffset(3),
-      endDate: dayOffset(3),
-      assignedTo: byEmail['john@andoys.ph']._id,
-      createdBy: manager._id,
-    },
-    {
-      title: 'Motorcycle Repair',
-      description: 'Replace a worn-out clutch lever and bleed the clutch fluid to restore proper engagement.',
-      serviceType: 'motorcycle-repair',
-      clientName: 'Dodong Serrano',
-      startDate: dayOffset(4),
-      endDate: dayOffset(4),
-      assignedTo: byEmail['mark@andoys.ph']._id,
-      createdBy: manager._id,
-    },
-    {
-      title: 'Suppliers Delivery',
-      description: 'Receive and verify the Shell and Castrol oil delivery against the purchase order.',
-      serviceType: 'supplier-delivery',
-      startDate: dayOffset(5),
-      endDate: dayOffset(5),
-      assignedTo: byEmail['alex@andoys.ph']._id,
-      createdBy: manager._id,
-    },
-    {
-      title: 'Engine Tune-up',
-      description: 'Full tune-up and fuel injection cleaning for a tricycle unit.',
-      serviceType: 'engine-tuneup',
-      startDate: dayOffset(6),
-      endDate: dayOffset(6),
-      assignedTo: null, // open job - shows up in the unassigned pool
-      createdBy: manager._id,
-      priority: 'low',
-    },
-  ]);
-  console.log('[seed] 5 service jobs created');
+  console.log(`[seed] ${createdUsers.length} accounts created (password: ${PASSWORD})`);
 
-  const today = toDateKey();
-  const at = (h, m) => {
-    const d = new Date();
-    d.setHours(h, m, 0, 0);
-    return d;
-  };
+const taskBase = new Date('2026-05-02T09:00:00');
+const endMonth = new Date('2026-08-31T17:00:00');
 
-  await Attendance.create([
-    { employee: byEmail['john@andoys.ph']._id, workDate: today, clockIn: at(9, 31), status: 'late' },
-    { employee: byEmail['mark@andoys.ph']._id, workDate: today, clockIn: at(7, 55), clockOut: at(16, 45), minutesWorked: 530 },
-    { employee: byEmail['antonio@andoys.ph']._id, workDate: today, clockIn: at(8, 5), status: 'present' },
-  ]);
+const jobs = [];
+let currentDate = new Date(taskBase);
+let counter = 0;
+
+while (currentDate <= endMonth) {
+
+  // Skip Sundays
+  if (currentDate.getDay() !== 0) {
+
+    // 1–3 jobs every working day
+    const jobsToday = Math.floor(Math.random() * 3) + 1;
+
+    for (let j = 0; j < jobsToday; j++) {
+
+      const template = serviceTemplates[counter % serviceTemplates.length];
+      const mechanicEmail = mechanicEmails[counter % mechanicEmails.length];
+      const clientName = clients[counter % clients.length];
+
+      const startDate = new Date(currentDate);
+
+      const endDate = new Date(startDate);
+      if (Math.random() < 0.2) {
+        endDate.setDate(endDate.getDate() + 1);
+      }
+
+      jobs.push({
+        title: `${template.title} \n- ${clientName}`,
+        description: template.description,
+        serviceType: template.serviceType,
+        clientName,
+        startDate,
+        endDate,
+        assignedTo: [byEmail[mechanicEmail]._id],
+        createdBy: manager._id,
+        priority: template.priority,
+        status: 'completed',
+      });
+
+      counter++;
+    }
+  }
+
+  currentDate.setDate(currentDate.getDate() + 1);
+}
+
+await ServiceJob.create(jobs);
+
+console.log(`[seed] ${jobs.length} service jobs created`);
+
+  const attendanceDate = new Date('2026-05-05T00:00:00');
+  const at = (h, m) => setTime(attendanceDate, h, m);
+
+await Attendance.create([
+  // Sales
+  {
+    employee: byEmail['charmaine@andoys.ph']._id,
+    workDate: toDateKey(attendanceDate),
+    clockIn: at(8, 0),
+    clockOut: at(17, 0),
+    minutesWorked: 540,
+    status: 'present',
+  },
+  {
+    employee: byEmail['loida@andoys.ph']._id,
+    workDate: toDateKey(attendanceDate),
+    clockIn: at(8, 6),
+    clockOut: at(17, 2),
+    minutesWorked: 536,
+    status: 'present',
+  },
+  {
+    employee: byEmail['dannilyn@andoys.ph']._id,
+    workDate: toDateKey(attendanceDate),
+    clockIn: at(8, 12),
+    clockOut: at(17, 1),
+    minutesWorked: 529,
+    status: 'present',
+  },
+
+  // Marketing
+  {
+    employee: byEmail['charlesdavid@andoys.ph']._id,
+    workDate: toDateKey(attendanceDate),
+    clockIn: at(8, 3),
+    clockOut: at(17, 6),
+    minutesWorked: 543,
+    status: 'present',
+  },
+  {
+    employee: byEmail['ferdiand@andoys.ph']._id,
+    workDate: toDateKey(attendanceDate),
+    clockIn: at(8, 18),
+    clockOut: at(17, 4),
+    minutesWorked: 526,
+    status: 'present',
+  },
+
+  // Mechanics
+  {
+    employee: byEmail['jethro@andoys.ph']._id,
+    workDate: toDateKey(attendanceDate),
+    clockIn: at(8, 5),
+    clockOut: at(17, 10),
+    minutesWorked: 545,
+    status: 'present',
+  },
+  {
+    employee: byEmail['donifer@andoys.ph']._id,
+    workDate: toDateKey(attendanceDate),
+    clockIn: at(8, 15),
+    clockOut: at(17, 0),
+    minutesWorked: 525,
+    status: 'present',
+  },
+  {
+    employee: byEmail['joven@andoys.ph']._id,
+    workDate: toDateKey(attendanceDate),
+    clockIn: at(8, 25),
+    clockOut: at(17, 20),
+    minutesWorked: 535,
+    status: 'late',
+  },
+
+  // Accounting
+  {
+    employee: byEmail['rockjohn@andoys.ph']._id,
+    workDate: toDateKey(attendanceDate),
+    clockIn: at(8, 10),
+    clockOut: at(17, 0),
+    minutesWorked: 530,
+    status: 'present',
+  },
+]);
 
   await ActivityLog.create([
-    { employee: byEmail['john@andoys.ph']._id, type: 'clock-in', message: 'Logged in on-duty', loggedAt: at(9, 31) },
-    { employee: byEmail['mark@andoys.ph']._id, type: 'work', message: 'Repaired wheels', work: 'Repaired wheels', clientName: 'Horse', loggedAt: at(11, 45) },
-    { employee: byEmail['alex@andoys.ph']._id, type: 'clock-out', message: 'Signed out', loggedAt: at(16, 45) },
+    {
+      employee: byEmail['jethro@andoys.ph']._id,
+      type: 'clock-in',
+      message: 'Logged in for the first service day of January 2026.',
+      loggedAt: at(8, 5),
+    },
+    {
+      employee: byEmail['jethro@andoys.ph']._id,
+      type: 'work',
+      message: 'Completed clutch inspection and wheel alignment.',
+      work: 'Clutch inspection and wheel alignment',
+      clientName: 'Ramon Villareal',
+      loggedAt: at(11, 30),
+    },
+    {
+      employee: byEmail['donifer@andoys.ph']._id,
+      type: 'work',
+      message: 'Finished brake adjustment and tire pressure check.',
+      work: 'Brake adjustment and tire pressure check',
+      clientName: 'Liza Gamboa',
+      loggedAt: at(13, 15),
+    },
+    {
+      employee: byEmail['joven@andoys.ph']._id,
+      type: 'clock-out',
+      message: 'Signed out after the day’s scheduled repair jobs.',
+      loggedAt: at(17, 20),
+    },
+    {
+      employee: byEmail['charmaine@andoys.ph']._id,
+      type: 'clock-in',
+      message: 'Opened the counter and processed early sales transactions.',
+      loggedAt: at(8, 0),
+    },
+    {
+      employee: byEmail['rockjohn@andoys.ph']._id,
+      type: 'work',
+      message: 'Prepared the accounting summary for the first week.',
+      work: 'Prepared accounting summary',
+      clientName: 'Internal',
+      loggedAt: at(15, 45),
+    },
   ]);
+
   console.log('[seed] attendance and activity logs created');
 
   const availability = [];
-  for (const email of ['john@andoys.ph', 'mark@andoys.ph', 'antonio@andoys.ph']) {
-    for (let i = 0; i < 14; i += 1) {
-      const d = new Date();
-      d.setDate(d.getDate() + i);
-      if (d.getDay() === 0) continue; // shop closed on Sundays
-      availability.push({ employee: byEmail[email]._id, workDate: toDateKey(d) });
+  const availabilityStart = new Date('2026-05-02T00:00:00');
+  const availabilityEnd = new Date('2026-08-30T00:00:00');
+
+  for (const email of mechanicEmails) {
+    let cursor = new Date(availabilityStart);
+    while (cursor <= availabilityEnd) {
+      if (!isSunday(cursor)) {
+        availability.push({
+          employee: byEmail[email]._id,
+          workDate: toDateKey(cursor),
+          isAvailable: true,
+        });
+      }
+      cursor = dayOffset(cursor, 1);
     }
   }
+
   await Availability.insertMany(availability);
   console.log(`[seed] ${availability.length} availability slots created`);
 
+  const leaveDate = toDateKey(new Date('2026-02-12T00:00:00'));
   await ShiftRequest.create({
-    requestedBy: byEmail['john@andoys.ph']._id,
+    requestedBy: byEmail['donifer@andoys.ph']._id,
     type: 'leave',
-    workDate: toDateKey(dayOffset(7)),
-    reason: 'Family obligation in Iloilo, back the next day.',
+    workDate: leaveDate,
+    reason: 'Family obligation in Iloilo; will return the following day.',
   });
 
   await Notification.create({
     recipient: manager._id,
-    title: 'Shift request waiting',
-    message: 'John dela Cruz requested leave on ' + toDateKey(dayOffset(7)),
+    title: 'Leave request waiting',
+    message: `Donifer requested leave on ${leaveDate}`,
     type: 'request',
   });
 
   console.log('\n[seed] done. Log in with:');
-  console.log('  manager@andoys.ph  / andoys123   (manager)');
-  console.log('  antonio@andoys.ph  / andoys123   (mechanic)\n');
+  console.log('  manager@andoys.ph      / andoys123   (manager)');
+  console.log('  jethro@andoys.ph     / andoys123   (mechanic)');
+  console.log('  donifer@andoys.ph    / andoys123   (mechanic)');
+  console.log('  joven@andoys.ph      / andoys123   (mechanic)\n');
 
   await disconnectDB();
 }
