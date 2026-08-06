@@ -274,16 +274,24 @@ export const logWork = asyncHandler(async (req, res) => {
   if (!job) throw ApiError.notFound('That job does not exist');
 
   const { work, clientName } = req.body;
-  const log = await ActivityLog.create({
-    employee: req.user.id,
-    type: 'work',
-    message: work,
-    work,
-    clientName: clientName || job.clientName || '',
-    relatedJob: job._id,
-  });
+  const isManager = req.user.role === 'manager';
+  const logEmployee = isManager && job.assignedTo ? job.assignedTo : req.user.id;
 
-  res.status(201).json({ success: true, message: 'Work logged', data: log });
+  const log = await ActivityLog.findOneAndUpdate(
+    { relatedJob: job._id, type: 'work', employee: logEmployee },
+    {
+      employee: logEmployee,
+      type: 'work',
+      message: work,
+      work,
+      clientName: clientName || job.clientName || '',
+      relatedJob: job._id,
+      loggedAt: new Date(),
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  res.json({ success: true, message: 'Work logged', data: log });
 });
 
 /**

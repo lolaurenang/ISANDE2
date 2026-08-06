@@ -58,6 +58,30 @@ const emptyJob = () => ({
   priority: 'normal',
 });
 
+function parseWorkToDraft(workItems) {
+  const work = [];
+  const customItems = [];
+
+  for (const item of workItems) {
+    if (JOB_PERFORMED_OPTIONS.includes(item)) {
+      work.push(item);
+    } else {
+      customItems.push(item);
+    }
+  }
+
+  if (customItems.length) {
+    work.push('Other');
+  }
+
+  return {
+    work,
+    otherWork: customItems.join(', '),
+  };
+}
+
+const emptyLogDraft = () => ({ work: [], otherWork: '', clientName: '', assignedTo: '' });
+
 export default function Schedule() {
   const { user, isManager } = useAuth();
   const [tab, setTab] = useState(isManager ? 'jobs' : 'availability');
@@ -73,7 +97,7 @@ export default function Schedule() {
   const [editingId, setEditingId] = useState(null);
 
   const [logTarget, setLogTarget] = useState(null);
-  const [logDraft, setLogDraft] = useState({ work: [], otherWork: '' });
+  const [logDraft, setLogDraft] = useState(emptyLogDraft());
 
   const [approvalTarget, setApprovalTarget] = useState(null);
   const [approvalNotes, setApprovalNotes] = useState('');
@@ -136,21 +160,6 @@ export default function Schedule() {
   function openNew() {
     setDraft(emptyJob());
     setEditingId(null);
-    setModalOpen(true);
-  }
-
-  function openEdit(job) {
-    setDraft({
-      title: job.title,
-      description: job.description,
-      serviceType: job.serviceType,
-      clientName: job.clientName,
-      startDate: toDateKey(job.startDate),
-      endDate: toDateKey(job.endDate),
-      assignedTo: job.assignedTo?._id || job.assignedTo || '',
-      priority: job.priority,
-    });
-    setEditingId(job._id);
     setModalOpen(true);
   }
 
@@ -260,7 +269,7 @@ export default function Schedule() {
             Job done
           </button>
         )}
-        {canLogWork && (
+        {canLogWork && !isManager && (
           <button type="button" className="btn btn-sm btn-ghost" onClick={() => openWorkLog(job)}>
             Log work
           </button>
@@ -272,7 +281,7 @@ export default function Schedule() {
         )}
         {isManager && (
           <>
-            <button type="button" className="btn btn-sm btn-ghost" onClick={() => openEdit(job)}>
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => openWorkLogForManager(job)}>
               Edit
             </button>
             <button type="button" className="btn btn-sm btn-danger" onClick={() => removeJob(job._id)}>
@@ -294,14 +303,52 @@ export default function Schedule() {
     }
   }
 
-  function openWorkLog(job) {
+  async function loadSavedWorkDraft(job) {
+    const draft = {
+      ...emptyLogDraft(),
+      clientName: job.clientName || '',
+      assignedTo: job.assignedTo?._id || job.assignedTo || '',
+    };
+
+    try {
+      const res = await jobsApi.getDetails(job._id);
+      const { workByEmployee } = res.data;
+
+      let workItems = [];
+      if (isManager) {
+        const assigneeName = job.assignedTo?.fullName;
+        const employeeEntry = workByEmployee.find((entry) => entry.employeeName === assigneeName);
+        workItems = employeeEntry?.work?.length
+          ? employeeEntry.work
+          : workByEmployee.flatMap((entry) => entry.work);
+      } else {
+        const myEntry = workByEmployee.find((entry) => entry.employeeName === user.fullName);
+        workItems = myEntry?.work || [];
+      }
+
+      if (workItems.length) {
+        return { ...draft, ...parseWorkToDraft(workItems) };
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+
+    return draft;
+  }
+
+  async function openWorkLog(job) {
     setLogTarget(job);
-    setLogDraft({ work: [], otherWork: '' });
+    setLogDraft(await loadSavedWorkDraft(job));
+  }
+
+  async function openWorkLogForManager(job) {
+    setLogTarget(job);
+    setLogDraft(await loadSavedWorkDraft(job));
   }
 
   function closeWorkLog() {
     setLogTarget(null);
-    setLogDraft({ work: [], otherWork: '' });
+    setLogDraft(emptyLogDraft());
   }
 
   async function submitWorkLog(e) {
@@ -323,9 +370,23 @@ export default function Schedule() {
     const work = parts.join(', ');
 
     try {
-      await jobsApi.logWork(logTarget._id, { work });
-      setNotice('Work logged');
+      if (isManager) {
+        await jobsApi.update(logTarget._id, {
+          clientName: logDraft.clientName,
+          assignedTo: logDraft.assignedTo || null,
+        });
+      }
+
+      if (work) {
+        await jobsApi.logWork(logTarget._id, {
+          work,
+          clientName: logDraft.clientName,
+        });
+      }
+
+      setNotice(isManager ? 'Job updated' : 'Work logged');
       closeWorkLog();
+      await load();
     } catch (err) {
       const detail = err.details?.[0]?.message;
       setError(detail || err.message);
@@ -470,7 +531,7 @@ export default function Schedule() {
                   actions={
                     isManager && (
                       <>
-                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => openEdit(job)}>
+                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => openWorkLogForManager(job)}>
                           Edit
                         </button>
                         <button type="button" className="btn btn-sm btn-danger" onClick={() => removeJob(job._id)}>
@@ -487,6 +548,86 @@ export default function Schedule() {
           </section>
         </div>
       )}
+
+      <Modal open={modalOpen} title="Add job" onClose={() => setModalOpen(false)}>
+        <form className="stack-form" onSubmit={saveJob}>
+          <label className="field">
+            <span>Title</span>
+            <input
+              value={draft.title}
+              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+              required
+            />
+          </label>
+          <label className="field">
+            <span>Description</span>
+            <textarea
+              rows={3}
+              value={draft.description}
+              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span>Service type</span>
+            <select
+              value={draft.serviceType}
+              onChange={(e) => setDraft({ ...draft, serviceType: e.target.value })}
+            >
+              {SERVICE_TYPES.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Client name</span>
+            <input
+              value={draft.clientName}
+              onChange={(e) => setDraft({ ...draft, clientName: e.target.value })}
+            />
+          </label>
+          <div className="field-row">
+            <label className="field">
+              <span>Start date</span>
+              <input
+                type="date"
+                value={draft.startDate}
+                onChange={(e) => setDraft({ ...draft, startDate: e.target.value })}
+                required
+              />
+            </label>
+            <label className="field">
+              <span>End date</span>
+              <input
+                type="date"
+                value={draft.endDate}
+                onChange={(e) => setDraft({ ...draft, endDate: e.target.value })}
+                required
+              />
+            </label>
+          </div>
+          <label className="field">
+            <span>Assigned to</span>
+            <select
+              value={draft.assignedTo}
+              onChange={(e) => setDraft({ ...draft, assignedTo: e.target.value })}
+            >
+              <option value="">Unassigned</option>
+              {staff
+                .filter((person) => person.role !== 'manager')
+                .map((person) => (
+                  <option key={person._id} value={person._id}>
+                    {person.fullName}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <button className="btn btn-primary" type="submit">
+            Schedule job
+          </button>
+        </form>
+      </Modal>
 
       <Modal open={Boolean(approvalTarget)} title="Job done" onClose={closeApprovalModal}>
         <form className="stack-form" onSubmit={submitForApproval}>
@@ -543,8 +684,36 @@ export default function Schedule() {
         )}
       </Modal>
 
-      <Modal open={Boolean(logTarget)} title="Log work" onClose={closeWorkLog}>
+      <Modal open={Boolean(logTarget)} title={isManager ? 'Edit job' : 'Log work'} onClose={closeWorkLog}>
         <form className="stack-form" onSubmit={submitWorkLog}>
+          {isManager && (
+            <>
+              <label className="field">
+                <span>Client name</span>
+                <input
+                  value={logDraft.clientName}
+                  onChange={(e) => setLogDraft({ ...logDraft, clientName: e.target.value })}
+                  required
+                />
+              </label>
+              <label className="field">
+                <span>Assigned to</span>
+                <select
+                  value={logDraft.assignedTo}
+                  onChange={(e) => setLogDraft({ ...logDraft, assignedTo: e.target.value })}
+                >
+                  <option value="">Unassigned</option>
+                  {staff
+                    .filter((person) => person.role !== 'manager')
+                    .map((person) => (
+                      <option key={person._id} value={person._id}>
+                        {person.fullName}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            </>
+          )}
           <div className="field" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', textAlign: 'left' }}>
             <span style={{ display: 'block', textAlign: 'left', marginBottom: '6px', fontWeight: '500' }}>
               Jobs performed
@@ -638,7 +807,7 @@ export default function Schedule() {
           )}
 
           <button className="btn btn-primary" type="submit">
-            Save log
+            {isManager ? 'Save changes' : 'Save log'}
           </button>
         </form>
       </Modal>
