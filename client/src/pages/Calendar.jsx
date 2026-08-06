@@ -26,7 +26,10 @@ export default function Calendar() {
   const load = useCallback(async () => {
     try {
       const res = await dashboardApi.calendar({ view, date: toDateKey(anchor) });
-      setJobs(res.data);
+      const today = toDateKey();
+      setJobs(
+        res.data.filter(job => toDateKey(job.endDate) >= today)
+      );
     } catch (err) {
       setError(err.message);
     }

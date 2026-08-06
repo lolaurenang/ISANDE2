@@ -84,7 +84,7 @@ const emptyLogDraft = () => ({ work: [], otherWork: '', clientName: '', assigned
 
 export default function Schedule() {
   const { user, isManager } = useAuth();
-  const [tab, setTab] = useState(isManager ? 'jobs' : 'availability');
+  const [tab, setTab] = useState('jobs');
   const [anchor, setAnchor] = useState(new Date());
 
   const [jobs, setJobs] = useState([]);
@@ -136,6 +136,25 @@ export default function Schedule() {
   useEffect(() => {
     load();
   }, [load]);
+
+  /* ------------------------------- availability ------------------------------ */
+  const myKeys = slots.filter((s) => s.isAvailable).map((s) => s.workDate);
+
+  async function toggleDay(key) {
+    setError('');
+    try {
+      if (myKeys.includes(key)) {
+        await availabilityApi.remove(key);
+        setNotice(`Removed ${formatDate(key)} from your availability`);
+      } else {
+        await availabilityApi.set({ workDate: key });
+        setNotice(`You are marked available on ${formatDate(key)}`);
+      }
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
   /* ---------------------------------- jobs ---------------------------------- */
   function openNew() {
@@ -267,13 +286,12 @@ export default function Schedule() {
           </button>
         )}
         {canSubmit && (
-          <button type="button" className="btn btn-sm btn-dark" onClick={() => openApprovalModal(job)}>
-            Job done
-          </button>
-        )}
-        {canLogWork && !isManager && (
-          <button type="button" className="btn btn-sm btn-ghost" onClick={() => openWorkLog(job)}>
-            Log work
+          <button
+            type="button"
+            className="btn btn-sm btn-dark"
+            onClick={() => openWorkLog(job)}
+          >
+            Finish Job
           </button>
         )}
         {showDetails && (
@@ -385,21 +403,25 @@ export default function Schedule() {
     const work = parts.join(', ');
 
     try {
-      if (isManager) {
-        await jobsApi.update(logTarget._id, {
-          clientName: logDraft.clientName,
-          assignedTo: logDraft.assignedTo || null,
-        });
-      }
-
       if (work) {
-        await jobsApi.logWork(logTarget._id, {
-          work,
-          clientName: logDraft.clientName,
-        });
-      }
+          await jobsApi.logWork(logTarget._id, {
+            work,
+            clientName: logDraft.clientName,
+          });
+        }
+
+        if (!isManager) {
+          await jobsApi.update(logTarget._id, {
+            status: 'for-approval',
+          });
+
+          setNotice('Job submitted for approval');
+        } else {
+          setNotice('Job updated');
+        }
 
       setNotice(isManager ? 'Job updated' : 'Work logged');
+
       closeWorkLog();
       await load();
     } catch (err) {
@@ -409,11 +431,18 @@ export default function Schedule() {
   }
 
   const todayKey = toDateKey();
-  const todayJobs = jobs.filter((j) => toDateKey(j.startDate) <= todayKey && todayKey <= toDateKey(j.endDate));
+  const todayJobs = jobs.filter(j =>
+  j.status === "in-progress" ||
+  (toDateKey(j.startDate) <= todayKey &&
+   todayKey <= toDateKey(j.endDate))
+);
   const todayJobsDisplay = isManager
     ? todayJobs.filter((j) => j.status !== 'for-approval')
     : todayJobs;
-  const upcoming = jobs.filter((j) => toDateKey(j.startDate) > todayKey);
+  const upcoming = jobs.filter(j =>
+  j.status !== "in-progress" &&
+  toDateKey(j.startDate) > todayKey
+);
   const open = jobs.filter(
   (j) => (!j.assignedTo || j.assignedTo.length === 0) && j.status === 'scheduled');  
   const pendingApproval = jobs.filter((j) => j.status === 'for-approval');
@@ -433,10 +462,7 @@ export default function Schedule() {
       </div>
 
       <div className="tabs">
-        <button
-          type="button"
-          className="active"
-        >
+        <button type="button" className={tab === 'jobs' ? 'active' : ''} onClick={() => setTab('jobs')}>
           Jobs
         </button>
       </div>
@@ -541,15 +567,25 @@ export default function Schedule() {
                   job={job}
                   showAssignee={isManager}
                   actions={
-                    isManager && (
+                    isManager ? (
                       <>
-                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => openEdit(job)}>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-ghost"
+                          onClick={() => openEdit(job)}
+                        >
                           Edit
                         </button>
-                        <button type="button" className="btn btn-sm btn-danger" onClick={() => removeJob(job._id)}>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-danger"
+                          onClick={() => removeJob(job._id)}
+                        >
                           Remove
                         </button>
                       </>
+                    ) : (
+                      renderJobActions(job)
                     )
                   }
                 />
@@ -786,7 +822,11 @@ export default function Schedule() {
         )}
       </Modal>
 
-      <Modal open={Boolean(logTarget)} title="Log work" onClose={closeWorkLog}>
+                <Modal
+            open={Boolean(logTarget)}
+            title="Finish Job"
+            onClose={closeWorkLog}
+          >
         <form className="stack-form" onSubmit={submitWorkLog}>
           {isManager && (
             <>
