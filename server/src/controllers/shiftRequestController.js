@@ -22,14 +22,18 @@ export const listRequests = asyncHandler(async (req, res) => {
 });
 
 export const createRequest = asyncHandler(async (req, res) => {
-  const request = await ShiftRequest.create({ ...req.body, requestedBy: req.user.id });
+  const request = await ShiftRequest.create({
+    ...req.body,
+    type: 'leave',
+    requestedBy: req.user.id,
+  });
 
   const managers = await User.find({ role: 'manager', isActive: true }).select('_id');
   await Notification.insertMany(
     managers.map((m) => ({
       recipient: m._id,
-      title: 'Shift request waiting',
-      message: `${req.user.fullName} requested ${request.type} on ${request.workDate}`,
+      title: 'Leave request waiting',
+      message: `${req.user.fullName} requested leave on ${request.workDate}`,
       type: 'request',
     }))
   );
@@ -47,36 +51,34 @@ export const reviewRequest = asyncHandler(async (req, res) => {
   if (!request) throw ApiError.notFound('No request with that id');
   if (request.status !== 'pending') throw ApiError.conflict('That request was already reviewed');
 
+  if (status === 'approved' && request.type === 'leave') {
+    await Availability.findOneAndUpdate(
+      { employee: request.requestedBy, workDate: request.workDate },
+      {
+        employee: request.requestedBy,
+        workDate: request.workDate,
+        isAvailable: false,
+        note: 'Approved leave',
+      },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+        runValidators: true,
+      }
+    );
+  }
+
   request.status = status;
   request.reviewedBy = req.user.id;
   request.reviewedAt = new Date();
   request.reviewNote = reviewNote || '';
   await request.save();
-  
-  if (status === "approved" && request.type === "leave") {
-  await Availability.findOneAndUpdate(
-    {
-      employee: request.requestedBy,
-      workDate: request.workDate,
-    },
-    {
-      employee: request.requestedBy,
-      workDate: request.workDate,
-      isAvailable: false,
-      note: "Approved Leave",
-    },
-    {
-      upsert: true,
-      new: true,
-      setDefaultsOnInsert: true,
-    }
-  );
-}
 
   await Notification.create({
     recipient: request.requestedBy,
     title: `Request ${status}`,
-    message: `Your ${request.type} for ${request.workDate} was ${status}`,
+    message: `Your leave for ${request.workDate} was ${status}`,
     type: 'request',
   });
 

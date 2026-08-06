@@ -7,6 +7,16 @@ import Availability from '../models/Availability.js';
 import ApiError from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { toDateKey, rangeFor } from '../utils/dates.js';
+import ShiftRequest from '../models/ShiftRequest.js';
+
+async function hasApprovedLeave(employee, workDate) {
+  return ShiftRequest.exists({
+    requestedBy: employee,
+    type: 'leave',
+    status: 'approved',
+    workDate,
+  });
+}
 
 export const listAvailability = asyncHandler(async (req, res) => {
   const { from, to, employee } = req.query;
@@ -35,6 +45,10 @@ export const listAvailability = asyncHandler(async (req, res) => {
 export const setAvailability = asyncHandler(async (req, res) => {
   const { workDate, isAvailable = true, startTime, endTime, note } = req.body;
 
+  if (await hasApprovedLeave(req.user.id, workDate)) {
+    throw ApiError.conflict('This date is already approved as leave.');
+  }
+
   const slot = await Availability.findOneAndUpdate(
     { employee: req.user.id, workDate },
     {
@@ -56,6 +70,19 @@ export const setAvailabilityBulk = asyncHandler(async (req, res) => {
     throw ApiError.badRequest('Send a "dates" array of YYYY-MM-DD strings');
   }
 
+  const blocked = await ShiftRequest.find({
+    requestedBy: req.user.id,
+    type: 'leave',
+    status: 'approved',
+    workDate: { $in: dates },
+  }).select('workDate');
+
+  if (blocked.length) {
+    throw ApiError.conflict(
+      `These dates are already approved as leave: ${blocked.map((d) => d.workDate).join(', ')}`
+    );
+  }
+
   const ops = dates.map((workDate) => ({
     updateOne: {
       filter: { employee: req.user.id, workDate },
@@ -71,6 +98,10 @@ export const setAvailabilityBulk = asyncHandler(async (req, res) => {
 });
 
 export const removeAvailability = asyncHandler(async (req, res) => {
+  if (await hasApprovedLeave(req.user.id, req.params.workDate)) {
+    throw ApiError.conflict('This date is already approved as leave.');
+  }
+
   const slot = await Availability.findOneAndDelete({
     employee: req.user.id,
     workDate: req.params.workDate,

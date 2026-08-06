@@ -18,7 +18,7 @@ export default function Profile() {
   const [pwOpen, setPwOpen] = useState(false);
   const [pw, setPw] = useState({ currentPassword: '', newPassword: '' });
   const [reqOpen, setReqOpen] = useState(false);
-  const [req, setReq] = useState({ type: 'leave', workDate: toDateKey(), reason: '' });
+  const [req, setReq] = useState({ workDate: toDateKey(), reason: '' });
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -49,9 +49,9 @@ export default function Profile() {
   async function sendRequest(e) {
     e.preventDefault();
     try {
-      await requestsApi.create(req);
+      await requestsApi.create({ ...req, type: 'leave' });
       setReqOpen(false);
-      setReq({ type: 'leave', workDate: toDateKey(), reason: '' });
+      setReq({ workDate: toDateKey(), reason: '' });
       setNotice('Request sent to your manager');
     } catch (err) {
       setError(err.message);
@@ -175,15 +175,7 @@ export default function Profile() {
       <Modal open={reqOpen} title="Request Leave" onClose={() => setReqOpen(false)}>
         <form className="stack-form" onSubmit={sendRequest}>
           <label className="field">
-            <span>Type</span>
-            <select value={req.type} onChange={(e) => setReq({ ...req, type: e.target.value })}>
-              <option value="leave">Leave</option>
-              <option value="shift-change">Shift change</option>
-              <option value="schedule-swap">Schedule swap</option>
-            </select>
-          </label>
-          <label className="field">
-            <span>Date</span>
+            <span>Leave Date</span>
             <input
               type="date"
               value={req.workDate}

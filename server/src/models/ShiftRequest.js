@@ -7,7 +7,7 @@
  */
 import mongoose from 'mongoose';
 
-export const REQUEST_TYPES = ['leave', 'shift-change', 'schedule-swap'];
+export const REQUEST_TYPES = ['leave'];
 export const REQUEST_STATUS = ['pending', 'approved', 'denied'];
 
 const shiftRequestSchema = new mongoose.Schema(
