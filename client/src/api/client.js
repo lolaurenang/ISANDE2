@@ -116,6 +116,10 @@ export const notificationsApi = {
   markAllRead: () => api.patch('/notifications/read-all'),
 };
 
+export const reportsApi = {
+  summary: (params) => api.get('/reports/summary', params),
+};
+
 export const requestsApi = {
   list: (params) => api.get('/requests', params),
   create: (body) => api.post('/requests', body),

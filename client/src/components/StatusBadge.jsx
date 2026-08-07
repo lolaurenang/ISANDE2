@@ -19,6 +19,6 @@ const LABELS = {
   busy: 'Busy',
 };
 
-export default function StatusBadge({ status }) {
-  return <span className={`status-badge status-${status}`}>{LABELS[status] || status}</span>;
+export default function StatusBadge({ status, label }) {
+  return <span className={`status-badge status-${status}`}>{label || LABELS[status] || status}</span>;
 }

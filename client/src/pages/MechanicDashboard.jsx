@@ -3,6 +3,7 @@ import { dashboardApi, usersApi, jobsApi } from '../api/client.js';
 import LogEntry from '../components/LogEntry.jsx';
 import JobCard from '../components/JobCard.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
+import ViewToggle from '../components/ViewToggle.jsx';
 import Banner from '../components/Banner.jsx';
 import Spinner from '../components/Spinner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
@@ -12,6 +13,7 @@ const TABS = ['logs', 'staff', 'accomplished'];
 
 export default function MechanicDashboard() {
   const [tab, setTab] = useState('logs');
+  const [view, setView] = useState('week');
   const [data, setData] = useState(null);
   const [staffList, setStaffList] = useState([]);
   const [accomplishedJobs, setAccomplishedJobs] = useState([]);
@@ -21,8 +23,8 @@ export default function MechanicDashboard() {
   const load = useCallback(async () => {
   try {
     const [dashRes, jobsRes] = await Promise.all([
-      dashboardApi.logs({ view: 'week', date: toDateKey() }),
-      jobsApi.list({ view: 'week', date: toDateKey(), status: 'ready-for-pickup,completed' }),
+      dashboardApi.logs({ view, date: toDateKey() }),
+      jobsApi.list({ view, date: toDateKey(), status: 'ready-for-pickup,completed' }),
     ]);
 
     setData(dashRes);
@@ -30,13 +32,13 @@ export default function MechanicDashboard() {
 
     if (usersApi?.list) {
       const staffRes = await usersApi.list();
-      setStaffList(staffRes.data || []);
+      setStaffList((staffRes.data || []).filter((s) => s.role !== 'manager'));
     }
   } catch (err) {
     console.error(err);
     setError(err.message);
   }
-}, []);
+}, [view]);
 
   useEffect(() => {
     load();
@@ -54,7 +56,10 @@ export default function MechanicDashboard() {
 
   return (
     <div className="page">
-      <h1>Mechanic Dashboard</h1>
+      <div className="page-top-row">
+        <h1 className="page-heading">Mechanic Dashboard</h1>
+        {tab !== 'staff' && <ViewToggle value={view} onChange={setView} />}
+      </div>
 
       {/* Tabs Header */}
       <div className="tabs">
@@ -70,7 +75,7 @@ export default function MechanicDashboard() {
         ))}
       </div>
 
-      {data?.range && (
+      {tab !== 'staff' && data?.range && (
         <p className="range-label small">
           {formatDate(data.range.from)} to {formatDate(data.range.to)}
         </p>
@@ -101,7 +106,7 @@ export default function MechanicDashboard() {
 
           {logs.length ? (
               logs.map((log) => (
-                <LogEntry key={log._id} log={log} />
+                <LogEntry key={log._id} log={log} showTaskName />
               ))
             ) : (
             <EmptyState

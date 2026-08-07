@@ -347,7 +347,7 @@ a:hover { text-decoration: underline; }
 .calendar-head { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 16px; }
 .calendar-title { font-size: 1.1rem; font-weight: 600; flex: 1; text-align: center; }
 
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
 .cal-weekday {
   text-align: center; font-size: 0.75rem; font-weight: 600;
   color: var(--orange); padding-bottom: 10px;
@@ -373,17 +373,19 @@ a:hover { text-decoration: underline; }
 }
 .cal-day.marked.has-job::after, .cal-day.selected.has-job::after { background: var(--white); }
 
-.calendar-full { padding: 8px; }
-.month-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.calendar-full { padding: 8px; overflow: hidden; }
+.month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .month-grid .cal-weekday { padding: 12px 0; }
 .month-cell {
   min-height: 104px;
+  min-width: 0;
   border-top: 1px solid var(--gray-100);
   border-right: 1px solid var(--gray-100);
   padding: 8px 7px;
   display: flex; flex-direction: column; align-items: stretch; gap: 4px;
   text-align: left;
   transition: background 0.12s;
+  overflow: hidden;
 }
 .month-cell:nth-child(7n + 7) { border-right: none; }
 .month-cell:hover { background: #fcfcfc; }
@@ -397,8 +399,22 @@ a:hover { text-decoration: underline; }
 }
 
 .event-tag {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
   font-size: 0.68rem; font-weight: 600;
   padding: 3px 7px; border-radius: 6px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.event-tag .event-tag-title {
+  display: block;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.event-tag .event-tag-meta {
+  display: block;
+  font-weight: 500;
+  font-size: 0.62rem;
+  opacity: 0.8;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .event-more { font-size: 0.66rem; color: var(--gray-700); padding-left: 4px; }
@@ -408,8 +424,8 @@ a:hover { text-decoration: underline; }
 .tag-supplier { background: #e5e9f2; color: #3d5580; }
 .tag-other { background: var(--gray-100); color: var(--gray-700); }
 
-.week-grid { display: grid; grid-template-columns: repeat(7, 1fr); overflow: hidden; }
-.week-col { border-right: 1px solid var(--gray-100); min-height: 300px; padding: 12px 8px; }
+.week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); overflow: hidden; }
+.week-col { border-right: 1px solid var(--gray-100); min-height: 300px; min-width: 0; padding: 12px 8px; overflow: hidden; }
 .week-col:last-child { border-right: none; }
 .week-col.today { background: #fffaf5; }
 .week-col-head { text-align: center; margin-bottom: 12px; }
@@ -420,9 +436,11 @@ a:hover { text-decoration: underline; }
   border-radius: var(--radius-sm);
   padding: 9px 10px; margin-bottom: 7px;
   font-size: 0.75rem;
+  min-width: 0;
+  overflow: hidden;
 }
-.event-block b { display: block; margin-bottom: 2px; }
-.event-block span { opacity: 0.75; }
+.event-block b { display: block; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.event-block span { display: block; opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .year-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; }
 .year-cell {

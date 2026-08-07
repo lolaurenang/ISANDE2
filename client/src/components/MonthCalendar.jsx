@@ -15,6 +15,7 @@ export default function MonthCalendar({
   onNavigate,
   variant = 'compact',
   markedKeys = [],
+  isManager = false,
 }) {
   const cells = buildMonthGrid(year, month);
   const marked = new Set(markedKeys);
@@ -72,11 +73,20 @@ export default function MonthCalendar({
             >
               <span className="day-num">{cell.dayNumber}</span>
               {variant === 'full' &&
-                dayJobs.slice(0, 3).map((job) => (
-                  <span key={job._id} className={`event-tag ${jobTypeClass(job.serviceType)}`}>
-                    {job.title}
-                  </span>
-                ))}
+                dayJobs.slice(0, 3).map((job) => {
+                  const mechanicNames = Array.isArray(job.assignedTo)
+                    ? job.assignedTo.map((u) => u.fullName).join(', ')
+                    : '';
+                  const meta = [job.clientName, isManager ? mechanicNames : '']
+                    .filter(Boolean)
+                    .join(' \u2022 ');
+                  return (
+                    <span key={job._id} className={`event-tag ${jobTypeClass(job.serviceType)}`}>
+                      <span className="event-tag-title">{job.title}</span>
+                      {meta && <span className="event-tag-meta">{meta}</span>}
+                    </span>
+                  );
+                })}
               {variant === 'full' && dayJobs.length > 3 && (
                 <span className="event-more">+{dayJobs.length - 3} more</span>
               )}

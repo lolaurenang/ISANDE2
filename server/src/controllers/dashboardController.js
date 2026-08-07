@@ -72,17 +72,25 @@ export const managerDashboard = asyncHandler(async (req, res) => {
   const view = req.query.view || 'week';
   const { from, to } = rangeFor(view, req.query.date || toDateKey());
 
-  const [logs, staff, jobStats] = await Promise.all([
+  const [logs, staff, jobStats, completedByEmployee] = await Promise.all([
     ActivityLog.find({ loggedAt: { $gte: from, $lte: to } })
       .populate('employee', 'fullName jobTitle department')
       .sort({ loggedAt: -1 })
       .limit(200),
-    User.find({ isActive: true })
+    // The manager doesn't need to see themselves in their own staff roster.
+    User.find({ isActive: true, role: { $ne: 'manager' } })
       .select('fullName jobTitle department status role avatarUrl')
       .sort({ role: 1, fullName: 1 }),
     ServiceJob.aggregate([
       { $match: { startDate: { $lte: to }, endDate: { $gte: from } } },
       { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]),
+    // Completed jobs per mechanic in this range - replaces the old
+    // late/absent columns with something the manager actually asked for.
+    ServiceJob.aggregate([
+      { $match: { status: 'completed', completedAt: { $gte: from, $lte: to } } },
+      { $unwind: '$assignedTo' },
+      { $group: { _id: '$assignedTo', count: { $sum: 1 } } },
     ]),
   ]);
 
@@ -96,10 +104,13 @@ export const managerDashboard = asyncHandler(async (req, res) => {
   };
   for (const row of jobStats) jobs[row._id] = row.count;
 
+  const completedCounts = {};
+  for (const row of completedByEmployee) completedCounts[String(row._id)] = row.count;
+
   res.json({
     success: true,
     range: { view, from: toDateKey(from), to: toDateKey(to) },
-    data: { logs, staff, jobs },
+    data: { logs, staff, jobs, completedCounts },
   });
 });
 
@@ -111,6 +122,7 @@ export const myDashboard = asyncHandler(async (req, res) => {
   const [logs, jobStats] = await Promise.all([
     ActivityLog.find({ employee: req.user.id, loggedAt: { $gte: from, $lte: to } })
       .populate('employee', 'fullName jobTitle department')
+      .populate('relatedJob', 'title')
       .sort({ loggedAt: -1 })
       .limit(200),
     ServiceJob.aggregate([

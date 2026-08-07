@@ -186,15 +186,22 @@ export default function Schedule() {
 }
 
   function workloadStatus(personId) {
-    const activeJobs = jobs.filter((j) =>
+    // Only count jobs that actually overlap the dates being scheduled -
+    // a mechanic booked next month has nothing to do with today's job.
+    const rangeStart = draft.startDate || toDateKey();
+    const rangeEnd = draft.endDate || rangeStart;
+
+    const overlapping = jobs.filter((j) =>
       j._id !== editingId &&
       ['scheduled', 'in-progress'].includes(j.status) &&
       Array.isArray(j.assignedTo) &&
-      j.assignedTo.some((a) => (a._id || a) === personId)
+      j.assignedTo.some((a) => (a._id || a) === personId) &&
+      toDateKey(j.startDate) <= rangeEnd &&
+      toDateKey(j.endDate) >= rangeStart
     ).length;
 
-    if (activeJobs === 0) return 'free';
-    if (activeJobs <= 2) return 'manageable';
+    if (overlapping === 0) return 'free';
+    if (overlapping === 1) return 'manageable';
     return 'busy';
   }
 
@@ -299,7 +306,11 @@ export default function Schedule() {
 
   function renderJobActions(job) {
     const isActive = !['ready-for-pickup', 'completed', 'cancelled'].includes(job.status);
-    const canSubmit = !isManager && ['scheduled', 'in-progress'].includes(job.status);
+    const hasFinishedMyPart = Array.isArray(job.completedBy) && job.completedBy.some((id) => (id._id || id) === user.id);
+    // When two or more mechanics are on a job, the first to finish just
+    // waits - the job only moves to approval once everyone's done.
+    const isWaitingOnCrew = !isManager && job.status === 'in-progress' && hasFinishedMyPart;
+    const canSubmit = !isManager && ['scheduled', 'in-progress'].includes(job.status) && !isWaitingOnCrew;
     const canLogWork = isActive && job.status !== 'for-approval';
     const showDetails = ['for-approval', 'ready-for-pickup', 'completed'].includes(job.status);
 
@@ -324,6 +335,7 @@ export default function Schedule() {
             Finish Job
           </button>
         )}
+        {isWaitingOnCrew && <StatusBadge status="for-approval" label="Waiting on teammate" />}
         {showDetails && (
           <button type="button" className="btn btn-sm btn-ghost" onClick={() => openJobDetails(job)}>
             Details
@@ -441,16 +453,13 @@ export default function Schedule() {
         }
 
         if (!isManager) {
-          await jobsApi.update(logTarget._id, {
+          const res = await jobsApi.update(logTarget._id, {
             status: 'for-approval',
           });
-
-          setNotice('Job submitted for approval');
+          setNotice(res?.message || 'Work logged');
         } else {
           setNotice('Job updated');
         }
-
-      setNotice(isManager ? 'Job updated' : 'Work logged');
 
       closeWorkLog();
       await load();

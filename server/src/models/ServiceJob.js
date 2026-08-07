@@ -72,6 +72,13 @@ const serviceJobSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     }],
+    // Which of the assignedTo mechanics have already logged their work and
+    // hit "Finish Job". The job only moves to for-approval once everyone
+    // assigned has finished their part.
+    completedBy: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    }],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

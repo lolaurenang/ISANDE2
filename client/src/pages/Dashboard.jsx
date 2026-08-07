@@ -65,6 +65,9 @@ export default function Dashboard() {
 
   const pending = requests.filter((r) => r.status === 'pending');
   const hoursByEmployee = new Map(summary.map((row) => [row.employee?.id, row]));
+  const completedByEmployee = data.data.completedCounts || {};
+  // The manager doesn't need to see their own row in their own staff roster.
+  const staffRows = data.data.staff.filter((s) => s.role !== 'manager');
 
   return (
     <div className="page">
@@ -125,14 +128,14 @@ export default function Dashboard() {
                 <th>Status</th>
                 <th>Hours</th>
                 <th>Days present</th>
-                <th>Late</th>
-                <th>Absent</th>
+                <th>Completed jobs</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {data.data.staff.map((s) => {
+              {staffRows.map((s) => {
                 const hours = hoursByEmployee.get(String(s._id));
+                const isMechanic = s.role === 'mechanic';
                 return (
                   <tr key={s._id}>
                     <td>
@@ -142,22 +145,31 @@ export default function Dashboard() {
                     <td>{s.jobTitle}</td>
                     <td>{s.department}</td>
                     <td>
-                      <StatusBadge status={s.status} />
+                      <StatusBadge status={s.status} label={s.status === 'on-duty' ? 'Clocked in' : undefined} />
                     </td>
                     <td>
                       <b>{hours?.totalHours ?? 0}</b>
-                      {hours?.targetHours && view === 'week' ? ` / ${hours.targetHours}` : ''}
                     </td>
                     <td>{hours?.daysPresent ?? 0}</td>
-                    <td>{hours?.daysLate ?? 0}</td>
-                    <td>{hours?.daysAbsent ?? 0}</td>
+                    <td>{completedByEmployee[s._id] ?? 0}</td>
                     <td className="row-actions">
-                      <select value={s.status} onChange={(e) => setStatus(s._id, e.target.value)} aria-label={`Set status for ${s.fullName}`}>
-                        <option value="available">Available</option>
-                        <option value="on-duty">On duty</option>
-                        <option value="absent">Absent</option>
-                        <option value="off-duty">Off duty</option>
-                      </select>
+                      {isMechanic ? (
+                        <select value={s.status} onChange={(e) => setStatus(s._id, e.target.value)} aria-label={`Set status for ${s.fullName}`}>
+                          <option value="available">Available</option>
+                          <option value="on-duty">On duty</option>
+                          <option value="absent">Absent</option>
+                          <option value="off-duty">Off duty</option>
+                        </select>
+                      ) : (
+                        <select
+                          value={s.status === 'on-duty' ? 'on-duty' : 'off-duty'}
+                          onChange={(e) => setStatus(s._id, e.target.value)}
+                          aria-label={`Set clock status for ${s.fullName}`}
+                        >
+                          <option value="on-duty">Clocked in</option>
+                          <option value="off-duty">Not clocked in</option>
+                        </select>
+                      )}
                     </td>
                   </tr>
                 );

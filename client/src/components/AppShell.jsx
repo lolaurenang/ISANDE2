@@ -16,6 +16,7 @@ const NAV = [
   { to: '/schedule', icon: 'schedule', label: 'Schedule' },
   { to: '/dashboard',
 icon: 'manager', label: 'Dashboard', },
+  { to: '/reports', icon: 'report', label: 'Reports', managerOnly: true },
 ];
 
 export default function AppShell({ children }) {

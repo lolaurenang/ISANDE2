@@ -84,6 +84,7 @@ export default function Calendar() {
             variant="full"
             selectedKey={selected}
             onSelect={setSelected}
+            isManager={isManager}
           />
         </div>
       )}
@@ -98,12 +99,18 @@ export default function Calendar() {
                   <span>{DAY_SHORT[i]}</span>
                   <b>{day.dayNumber}</b>
                 </p>
-                {dayJobs.map((job) => (
-                  <div key={job._id} className={`event-block ${jobTypeClass(job.serviceType)}`}>
-                    <b>{job.title}</b>
-                    {job.assignedTo && <span>{job.assignedTo.fullName}</span>}
-                  </div>
-                ))}
+                {dayJobs.map((job) => {
+                  const mechanicNames = Array.isArray(job.assignedTo)
+                    ? job.assignedTo.map((u) => u.fullName).join(', ')
+                    : '';
+                  return (
+                    <div key={job._id} className={`event-block ${jobTypeClass(job.serviceType)}`}>
+                      <b>{job.title}</b>
+                      {job.clientName && <span>Client: {job.clientName}</span>}
+                      {isManager && mechanicNames && <span>Mechanic: {mechanicNames}</span>}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}

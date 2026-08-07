@@ -11,6 +11,7 @@ import availabilityRoutes from './availabilityRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import requestRoutes from './requestRoutes.js';
 import dashboardRoutes from './dashboardRoutes.js';
+import reportRoutes from './reportRoutes.js';
 
 const router = Router();
 
@@ -26,5 +27,6 @@ router.use('/availability', availabilityRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/requests', requestRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/reports', reportRoutes);
 
 export default router;

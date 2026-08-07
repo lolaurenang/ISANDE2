@@ -151,9 +151,18 @@ export const updateJob = asyncHandler(async (req, res) => {
   if (!job) throw ApiError.notFound('That job does not exist');
 
   const isManager = req.user.role === 'manager';
-  const isOwner = Boolean(job.assignedTo) && String(job.assignedTo) === req.user.id;
+  // assignedTo is an array (a job can have more than one mechanic on it),
+  // so ownership means "I'm one of the people on this job" - not a direct
+  // equality check against the whole array.
+  const assignedIds = (job.assignedTo || []).map(String);
+  const isOwner = assignedIds.includes(req.user.id);
   // An open job may be claimed, but only by the person doing the claiming.
-  const isClaim = !job.assignedTo && req.body.assignedTo === req.user.id;
+  const requestedAssignees = Array.isArray(req.body.assignedTo)
+    ? req.body.assignedTo.map(String)
+    : req.body.assignedTo
+      ? [String(req.body.assignedTo)]
+      : [];
+  const isClaim = assignedIds.length === 0 && requestedAssignees.length === 1 && requestedAssignees[0] === req.user.id;
 
   if (!isManager && !isOwner && !isClaim) {
     throw ApiError.forbidden('That job is not assigned to you');
@@ -195,7 +204,28 @@ export const updateJob = asyncHandler(async (req, res) => {
     }
   }
 
-  const previousAssignees = job.assignedTo.map(String);
+  const previousAssignees = assignedIds;
+
+  // A job with several mechanics only moves to "for-approval" once every
+  // one of them has hit Finish Job. Whoever finishes first just records
+  // that their part is done and the job stays in-progress.
+  let partialCompletion = false;
+  let waitingOn = [];
+  if (!isManager && requestedStatus === 'for-approval') {
+    const doneSet = new Set(job.completedBy.map(String));
+    doneSet.add(req.user.id);
+    job.completedBy = [...doneSet];
+
+    const allDone = assignedIds.length > 0 && assignedIds.every((id) => doneSet.has(id));
+    if (allDone) {
+      job.status = 'for-approval';
+    } else {
+      partialCompletion = true;
+      waitingOn = assignedIds.filter((id) => !doneSet.has(id));
+      job.status = 'in-progress';
+    }
+    delete req.body.status;
+  }
 
   for (const key of fields) {
     if (req.body[key] !== undefined) job[key] = req.body[key];
@@ -221,6 +251,17 @@ if (
     }
   }
 }
+
+  // A manager reassigning the crew, or pulling a job back to an earlier
+  // status, clears out who has "finished" so the approval flow starts fresh.
+  if (isManager) {
+    const newAssignees = Array.isArray(req.body.assignedTo) ? req.body.assignedTo.map(String) : null;
+    const reassigned =
+      newAssignees && JSON.stringify([...newAssignees].sort()) !== JSON.stringify([...previousAssignees].sort());
+    const reopened =
+      requestedStatus && ['scheduled', 'in-progress'].includes(requestedStatus) && previousStatus !== requestedStatus;
+    if (reassigned || reopened) job.completedBy = [];
+  }
 
   if (job.status === 'for-approval' && previousStatus !== 'for-approval') {
     job.submittedAt = new Date();
@@ -278,7 +319,20 @@ if (job.assignedTo.length) {
   );
 }
   await job.populate('assignedTo', 'fullName jobTitle');
-  res.json({ success: true, message: 'Job updated', data: job });
+
+  let message = 'Job updated';
+  if (partialCompletion) {
+    const names = waitingOn.length
+      ? (await User.find({ _id: { $in: waitingOn } }).select('fullName')).map((u) => u.fullName)
+      : [];
+    message = names.length
+      ? `Your work was logged. Waiting on ${names.join(', ')} to finish before this goes to the manager.`
+      : 'Your work was logged. Waiting on the rest of the crew to finish.';
+  } else if (job.status === 'for-approval' && previousStatus !== 'for-approval') {
+    message = 'Job submitted for manager approval';
+  }
+
+  res.json({ success: true, message, data: job });
 });
 
 export const deleteJob = asyncHandler(async (req, res) => {
@@ -307,8 +361,10 @@ export const logWork = asyncHandler(async (req, res) => {
   if (!job) throw ApiError.notFound('That job does not exist');
 
   const { work, clientName } = req.body;
-  const isManager = req.user.role === 'manager';
-  const logEmployee = isManager && job.assignedTo ? job.assignedTo : req.user.id;
+  // Each person logs their own work - assignedTo is an array (a job can
+  // have several mechanics on it), so this can never be pointed at the
+  // whole array the way it used to be.
+  const logEmployee = req.user.id;
 
   const log = await ActivityLog.findOneAndUpdate(
     { relatedJob: job._id, type: 'work', employee: logEmployee },

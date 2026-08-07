@@ -251,6 +251,10 @@ async function run() {
 
 const taskBase = new Date('2026-05-02T09:00:00');
 const endMonth = new Date('2026-08-31T17:00:00');
+// "Now" anchors which jobs read as history vs. upcoming work, so the
+// Schedule, Dashboard and Calendar all have something realistic to show
+// no matter when this seed script is actually run.
+const now = new Date();
 
 const jobs = [];
 let currentDate = new Date(taskBase);
@@ -261,13 +265,19 @@ while (currentDate <= endMonth) {
   // Skip Sundays
   if (currentDate.getDay() !== 0) {
 
-    // 1–3 jobs every working day
-    const jobsToday = Math.floor(Math.random() * 3) + 1;
+    const isFuture = currentDate > now;
+    // History can stay dense - it's already resolved and doesn't block
+    // anything. Upcoming days need real gaps, or every mechanic looks
+    // "busy" on every date and a manager can never book new work.
+    const jobsToday = isFuture
+      ? (Math.random() < 0.35 ? 0 : Math.random() < 0.7 ? 1 : 2)
+      : Math.floor(Math.random() * 3) + 1;
 
     for (let j = 0; j < jobsToday; j++) {
 
       const template = serviceTemplates[counter % serviceTemplates.length];
       const mechanicEmail = mechanicEmails[counter % mechanicEmails.length];
+      const secondMechanicEmail = mechanicEmails[(counter + 1) % mechanicEmails.length];
       const clientName = clients[counter % clients.length];
 
       const startDate = new Date(currentDate);
@@ -277,17 +287,67 @@ while (currentDate <= endMonth) {
         endDate.setDate(endDate.getDate() + 1);
       }
 
+      // Roughly every 5th job goes to two mechanics, so the "finish job
+      // needs everyone assigned to check in" flow has real data to show.
+      const assignedTo =
+        counter % 5 === 0
+          ? [byEmail[mechanicEmail]._id, byEmail[secondMechanicEmail]._id]
+          : [byEmail[mechanicEmail]._id];
+
+      // Jobs fully in the past are done; jobs straddling today are mid-flight
+      // in one of the approval stages; jobs in the future are still scheduled.
+      let status;
+      let completedAt = null;
+      let completedBy = [];
+      let submittedAt = null;
+      let submittedBy = null;
+
+      if (endDate < now) {
+        status = 'completed';
+        completedAt = endDate;
+        completedBy = assignedTo;
+        submittedAt = endDate;
+        submittedBy = assignedTo[0];
+      } else if (startDate <= now && endDate >= now) {
+        const r = Math.random();
+        if (r < 0.4) {
+          status = 'in-progress';
+        } else if (r < 0.65) {
+          status = 'for-approval';
+          completedBy = assignedTo;
+          submittedAt = now;
+          submittedBy = assignedTo[0];
+        } else if (r < 0.85) {
+          status = 'ready-for-pickup';
+          completedBy = assignedTo;
+          submittedAt = now;
+          submittedBy = assignedTo[0];
+        } else {
+          status = 'completed';
+          completedAt = now;
+          completedBy = assignedTo;
+          submittedAt = now;
+          submittedBy = assignedTo[0];
+        }
+      } else {
+        status = 'scheduled';
+      }
+
       jobs.push({
-        title: `${template.title} \n- ${clientName}`,
+        title: `${template.title} - ${clientName}`,
         description: template.description,
         serviceType: template.serviceType,
         clientName,
         startDate,
         endDate,
-        assignedTo: [byEmail[mechanicEmail]._id],
+        assignedTo,
+        completedBy,
         createdBy: manager._id,
         priority: template.priority,
-        status: 'completed',
+        status,
+        completedAt,
+        submittedAt,
+        submittedBy,
       });
 
       counter++;

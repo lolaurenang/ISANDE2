@@ -17,6 +17,8 @@ const PATHS = {
   next: 'M10 6l6 6-6 6',
   check: 'M5 13l4 4L19 7',
   logout: 'M15 12H4m0 0 3.5-3.5M4 12l3.5 3.5M11 5h7a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-7',
+  report: 'M7 3h8l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM15 3v4h4M9 13h6M9 17h6M9 9h2',
+  download: 'M12 4v11m0 0-4-4m4 4 4-4M5 19h14',
 };
 
 export default function Icon({ name, size = 22, className = '' }) {
