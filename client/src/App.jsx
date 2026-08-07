@@ -15,6 +15,7 @@ import Home from './pages/Home.jsx';
 import Calendar from './pages/Calendar.jsx';
 import Schedule from './pages/Schedule.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import MechanicDashboard from './pages/MechanicDashboard';
 import Profile from './pages/Profile.jsx';
 import Notifications from './pages/Notifications.jsx';
 import NotFound from './pages/NotFound.jsx';
@@ -41,14 +42,7 @@ export default function App() {
       <Route path="/schedule" element={<Shell><Schedule /></Shell>} />
       <Route path="/notifications" element={<Shell><Notifications /></Shell>} />
       <Route path="/profile" element={<Shell><Profile /></Shell>} />
-      <Route
-        path="/dashboard"
-        element={
-          <Shell roles={['manager']}>
-            <Dashboard />
-          </Shell>
-        }
-      />
+      <Route path="/dashboard" element={<Shell>{user?.role === 'manager'? <Dashboard />: <MechanicDashboard />}</Shell>}/>
 
       <Route path="*" element={<NotFound />} />
     </Routes>
