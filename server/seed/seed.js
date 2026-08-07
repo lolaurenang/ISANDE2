@@ -249,12 +249,12 @@ async function run() {
 
   console.log(`[seed] ${createdUsers.length} accounts created (password: ${PASSWORD})`);
 
-const taskBase = new Date('2026-05-02T09:00:00');
-const endMonth = new Date('2026-08-31T17:00:00');
+const taskBase = new Date('2026-05-15T09:00:00');
+const endMonth = new Date('2026-08-15T17:00:00');
 // "Now" anchors which jobs read as history vs. upcoming work, so the
 // Schedule, Dashboard and Calendar all have something realistic to show
 // no matter when this seed script is actually run.
-const now = new Date();
+const now = new Date('2026-05-15T10:00:00');
 
 const jobs = [];
 let currentDate = new Date(taskBase);
@@ -265,13 +265,7 @@ while (currentDate <= endMonth) {
   // Skip Sundays
   if (currentDate.getDay() !== 0) {
 
-    const isFuture = currentDate > now;
-    // History can stay dense - it's already resolved and doesn't block
-    // anything. Upcoming days need real gaps, or every mechanic looks
-    // "busy" on every date and a manager can never book new work.
-    const jobsToday = isFuture
-      ? (Math.random() < 0.35 ? 0 : Math.random() < 0.7 ? 1 : 2)
-      : Math.floor(Math.random() * 3) + 1;
+    const jobsToday = 1 + 1;
 
     for (let j = 0; j < jobsToday; j++) {
 
@@ -334,7 +328,7 @@ while (currentDate <= endMonth) {
       }
 
       jobs.push({
-        title: `${template.title} - ${clientName}`,
+        title: `${template.title}`,
         description: template.description,
         serviceType: template.serviceType,
         clientName,
@@ -371,7 +365,7 @@ await Attendance.create([
     workDate: toDateKey(attendanceDate),
     clockIn: at(8, 0),
     clockOut: at(17, 0),
-    minutesWorked: 540,
+    minutesWorked: 1540,
     status: 'present',
   },
   {
@@ -379,7 +373,7 @@ await Attendance.create([
     workDate: toDateKey(attendanceDate),
     clockIn: at(8, 6),
     clockOut: at(17, 2),
-    minutesWorked: 536,
+    minutesWorked: 1536,
     status: 'present',
   },
   {
@@ -387,7 +381,7 @@ await Attendance.create([
     workDate: toDateKey(attendanceDate),
     clockIn: at(8, 12),
     clockOut: at(17, 1),
-    minutesWorked: 529,
+    minutesWorked: 1529,
     status: 'present',
   },
 
@@ -397,7 +391,7 @@ await Attendance.create([
     workDate: toDateKey(attendanceDate),
     clockIn: at(8, 3),
     clockOut: at(17, 6),
-    minutesWorked: 543,
+    minutesWorked: 1543,
     status: 'present',
   },
   {
@@ -405,7 +399,7 @@ await Attendance.create([
     workDate: toDateKey(attendanceDate),
     clockIn: at(8, 18),
     clockOut: at(17, 4),
-    minutesWorked: 526,
+    minutesWorked: 1526,
     status: 'present',
   },
 
@@ -415,7 +409,7 @@ await Attendance.create([
     workDate: toDateKey(attendanceDate),
     clockIn: at(8, 5),
     clockOut: at(17, 10),
-    minutesWorked: 545,
+    minutesWorked: 2545,
     status: 'present',
   },
   {
@@ -423,7 +417,7 @@ await Attendance.create([
     workDate: toDateKey(attendanceDate),
     clockIn: at(8, 15),
     clockOut: at(17, 0),
-    minutesWorked: 525,
+    minutesWorked: 1525,
     status: 'present',
   },
   {
@@ -431,7 +425,7 @@ await Attendance.create([
     workDate: toDateKey(attendanceDate),
     clockIn: at(8, 25),
     clockOut: at(17, 20),
-    minutesWorked: 535,
+    minutesWorked: 1535,
     status: 'late',
   },
 
