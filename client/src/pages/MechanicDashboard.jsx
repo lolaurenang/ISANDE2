@@ -5,7 +5,7 @@ import StatusBadge from '../components/StatusBadge.jsx';
 import Banner from '../components/Banner.jsx';
 import Spinner from '../components/Spinner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
-import { formatDate, initials } from '../utils.js';
+import { toDateKey, formatDate, initials } from '../utils.js';
 
 const TABS = ['logs', 'staff', 'accomplished'];
 
@@ -17,25 +17,23 @@ export default function MechanicDashboard() {
   const [notice, setNotice] = useState('');
 
   const load = useCallback(async () => {
-    try {
-      // 1. Fetch mechanic home dashboard data
-      const dashRes = await dashboardApi.home();
-      const payload = dashRes?.data || dashRes;
-      setData(payload);
+  try {
+    const dashRes = await dashboardApi.logs({
+      view: 'week',
+      date: toDateKey(),
+    });
 
-      // 2. Fetch staff list from users endpoint (copied from Manager Dashboard source)
-      if (usersApi?.list) {
-        const staffRes = await usersApi.list();
-        const users = staffRes?.data || staffRes || [];
-        setStaffList(users);
-      } else if (payload.staff) {
-        setStaffList(payload.staff);
-      }
-    } catch (err) {
-      console.error('Dashboard error:', err);
-      setError(err.message || 'Failed to load dashboard data');
+    setData(dashRes);
+
+    if (usersApi?.list) {
+      const staffRes = await usersApi.list();
+      setStaffList(staffRes.data || []);
     }
-  }, []);
+  } catch (err) {
+    console.error(err);
+    setError(err.message);
+  }
+}, []);
 
   useEffect(() => {
     load();
@@ -49,17 +47,13 @@ export default function MechanicDashboard() {
     );
   }
 
-  // Safely extract mechanic activity logs and jobs
-  const todayJobs = data?.todayJobs || [];
-  const upcomingJobs = data?.upcoming || [];
+  const logs = data?.data?.logs || [];
 
-  // Combine logs for the mechanic view
-  const activityLogs = [...todayJobs, ...upcomingJobs];
-
-  // Filter completed/accomplished jobs specifically for this mechanic
-  const accomplishedJobs = activityLogs.filter(
-    (job) => job.status === 'completed' || job.status === 'accomplished'
-  );
+const accomplishedJobs = logs.filter(
+  (log) =>
+    log.status === 'completed' ||
+    log.status === 'accomplished'
+);
 
   return (
     <div className="page">
@@ -79,9 +73,9 @@ export default function MechanicDashboard() {
         ))}
       </div>
 
-      {data?.today && (
+      {data?.range && (
         <p className="range-label small">
-          Today: {formatDate(data.today)}
+          {formatDate(data.range.from)} to {formatDate(data.range.to)}
         </p>
       )}
 
@@ -93,13 +87,13 @@ export default function MechanicDashboard() {
         <section>
           <div className="stat-row">
             <div className="stat">
-              <b>{todayJobs.length}</b>
-              <span>Today's Jobs</span>
+              <b>{data.data.jobs.scheduled}</b>
+              <span>Scheduled</span>
             </div>
 
             <div className="stat">
-              <b>{upcomingJobs.length}</b>
-              <span>Upcoming</span>
+              <b>{data.data.jobs['in-progress']}</b>
+                <span>In Progress</span>
             </div>
 
             <div className="stat">
@@ -108,11 +102,11 @@ export default function MechanicDashboard() {
             </div>
           </div>
 
-          {activityLogs.length ? (
-            activityLogs.map((log) => (
-              <LogEntry key={log._id || log.id} log={log} />
-            ))
-          ) : (
+          {logs.length ? (
+              logs.map((log) => (
+                <LogEntry key={log._id} log={log} />
+              ))
+            ) : (
             <EmptyState
               title="No activity in this view"
               hint="Check back later for new task assignments."
@@ -170,7 +164,7 @@ export default function MechanicDashboard() {
         <section>
           {accomplishedJobs.length ? (
             accomplishedJobs.map((job) => (
-              <LogEntry key={job._id || job.id} log={job} />
+              <LogEntry key={job._id} log={job} />
             ))
           ) : (
             <EmptyState

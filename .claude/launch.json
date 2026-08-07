@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "server",
+      "url": "http://localhost:5000",
+      "port": 5000
+    },
+    {
+      "name": "client",
+      "url": "http://localhost:5173",
+      "port": 5173
+    }
+  ]
+}

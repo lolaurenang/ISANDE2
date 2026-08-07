@@ -72,6 +72,7 @@ export const authApi = {
 export const dashboardApi = {
   home: () => api.get('/dashboard/home'),
   manager: (params) => api.get('/dashboard/manager', params),
+  logs: (params) => api.get('/dashboard/logs', params),
   calendar: (params) => api.get('/dashboard/calendar', params),
 };
 

@@ -96,6 +96,32 @@ export const managerDashboard = asyncHandler(async (req, res) => {
   });
 });
 
+/** Personal dashboard for any staff member: Logs tab, scoped to me. Same query shape as managerDashboard. */
+export const myDashboard = asyncHandler(async (req, res) => {
+  const view = req.query.view || 'week';
+  const { from, to } = rangeFor(view, req.query.date || toDateKey());
+
+  const [logs, jobStats] = await Promise.all([
+    ActivityLog.find({ employee: req.user.id, loggedAt: { $gte: from, $lte: to } })
+      .populate('employee', 'fullName jobTitle department')
+      .sort({ loggedAt: -1 })
+      .limit(200),
+    ServiceJob.aggregate([
+      { $match: { assignedTo: req.user._id, startDate: { $lte: to }, endDate: { $gte: from } } },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const jobs = { scheduled: 0, 'in-progress': 0, 'for-approval': 0, completed: 0, cancelled: 0 };
+  for (const row of jobStats) jobs[row._id] = row.count;
+
+  res.json({
+    success: true,
+    range: { view, from: toDateKey(from), to: toDateKey(to) },
+    data: { logs, jobs },
+  });
+});
+
 /** Everything the Calendar page needs for one week / month / year. */
 export const calendar = asyncHandler(async (req, res) => {
   const view = req.query.view || 'month';
