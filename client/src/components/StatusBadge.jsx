@@ -6,6 +6,7 @@ const LABELS = {
   scheduled: 'Scheduled',
   'in-progress': 'In progress',
   'for-approval': 'For approval',
+  'ready-for-pickup': 'Ready for pickup',
   completed: 'Done',
   cancelled: 'Cancelled',
   present: 'Present',
@@ -13,6 +14,9 @@ const LABELS = {
   pending: 'Pending',
   approved: 'Approved',
   denied: 'Denied',
+  free: 'Free',
+  manageable: 'Manageable',
+  busy: 'Busy',
 };
 
 export default function StatusBadge({ status }) {

@@ -20,7 +20,14 @@ export const SERVICE_TYPES = [
   'other',
 ];
 
-export const JOB_STATUS = ['scheduled', 'in-progress', 'for-approval', 'completed', 'cancelled'];
+export const JOB_STATUS = [
+  'scheduled',
+  'in-progress',
+  'for-approval',
+  'ready-for-pickup',
+  'completed',
+  'cancelled',
+];
 export const JOB_PRIORITY = ['low', 'normal', 'high'];
 
 const serviceJobSchema = new mongoose.Schema(

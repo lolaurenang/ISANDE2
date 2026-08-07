@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
-import { dashboardApi, usersApi } from '../api/client.js';
+import { dashboardApi, usersApi, jobsApi } from '../api/client.js';
 import LogEntry from '../components/LogEntry.jsx';
+import JobCard from '../components/JobCard.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import Banner from '../components/Banner.jsx';
 import Spinner from '../components/Spinner.jsx';
@@ -13,17 +14,19 @@ export default function MechanicDashboard() {
   const [tab, setTab] = useState('logs');
   const [data, setData] = useState(null);
   const [staffList, setStaffList] = useState([]);
+  const [accomplishedJobs, setAccomplishedJobs] = useState([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
   const load = useCallback(async () => {
   try {
-    const dashRes = await dashboardApi.logs({
-      view: 'week',
-      date: toDateKey(),
-    });
+    const [dashRes, jobsRes] = await Promise.all([
+      dashboardApi.logs({ view: 'week', date: toDateKey() }),
+      jobsApi.list({ view: 'week', date: toDateKey(), status: 'ready-for-pickup,completed' }),
+    ]);
 
     setData(dashRes);
+    setAccomplishedJobs(jobsRes.data || []);
 
     if (usersApi?.list) {
       const staffRes = await usersApi.list();
@@ -48,12 +51,6 @@ export default function MechanicDashboard() {
   }
 
   const logs = data?.data?.logs || [];
-
-const accomplishedJobs = logs.filter(
-  (log) =>
-    log.status === 'completed' ||
-    log.status === 'accomplished'
-);
 
   return (
     <div className="page">
@@ -164,7 +161,7 @@ const accomplishedJobs = logs.filter(
         <section>
           {accomplishedJobs.length ? (
             accomplishedJobs.map((job) => (
-              <LogEntry key={job._id} log={job} />
+              <JobCard key={job._id} job={job} />
             ))
           ) : (
             <EmptyState

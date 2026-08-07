@@ -37,7 +37,7 @@ export const listJobs = asyncHandler(async (req, res) => {
     filter.endDate = { $gte: from };
   }
 
-  if (status) filter.status = status;
+  if (status) filter.status = status.includes(',') ? { $in: status.split(',') } : status;
   // Hide finished jobs from the calendar/schedule by default.
   if (!status) {
   filter.status = { $ne: 'completed' };
@@ -175,8 +175,8 @@ export const updateJob = asyncHandler(async (req, res) => {
 
   if (requestedStatus !== undefined && requestedStatus !== job.status) {
     if (!isManager) {
-      if (requestedStatus === 'completed') {
-        throw ApiError.forbidden('Only a manager can mark a job as done');
+      if (['ready-for-pickup', 'completed'].includes(requestedStatus)) {
+        throw ApiError.forbidden('Only a manager can move a job past approval');
       }
       if (requestedStatus === 'for-approval') {
         if (!['scheduled', 'in-progress'].includes(job.status)) {
@@ -185,8 +185,13 @@ export const updateJob = asyncHandler(async (req, res) => {
       } else if (requestedStatus !== 'in-progress') {
         throw ApiError.forbidden('You cannot set that status');
       }
-    } else if (requestedStatus === 'completed' && job.status === 'for-approval') {
-      // manager approving a submitted job
+    } else {
+      if (requestedStatus === 'ready-for-pickup' && job.status !== 'for-approval') {
+        throw ApiError.badRequest('Only a job awaiting approval can be marked ready for pickup');
+      }
+      if (requestedStatus === 'completed' && job.status !== 'ready-for-pickup') {
+        throw ApiError.badRequest('Only a job ready for pickup can be marked done');
+      }
     }
   }
 
@@ -242,7 +247,7 @@ if (
   }
 
   if (
-  job.status === 'completed' &&
+  job.status === 'ready-for-pickup' &&
   previousStatus === 'for-approval' &&
   job.assignedTo.length
 ) {
@@ -251,7 +256,7 @@ if (
       Notification.create({
         recipient: id,
         title: 'Job approved',
-        message: `"${job.title}" has been marked as done`,
+        message: `"${job.title}" has been approved and is ready for pickup`,
         type: 'schedule-change',
         relatedJob: job._id,
       })

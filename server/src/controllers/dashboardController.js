@@ -86,7 +86,14 @@ export const managerDashboard = asyncHandler(async (req, res) => {
     ]),
   ]);
 
-  const jobs = { scheduled: 0, 'in-progress': 0, 'for-approval': 0, completed: 0, cancelled: 0 };
+  const jobs = {
+    scheduled: 0,
+    'in-progress': 0,
+    'for-approval': 0,
+    'ready-for-pickup': 0,
+    completed: 0,
+    cancelled: 0,
+  };
   for (const row of jobStats) jobs[row._id] = row.count;
 
   res.json({
@@ -112,7 +119,14 @@ export const myDashboard = asyncHandler(async (req, res) => {
     ]),
   ]);
 
-  const jobs = { scheduled: 0, 'in-progress': 0, 'for-approval': 0, completed: 0, cancelled: 0 };
+  const jobs = {
+    scheduled: 0,
+    'in-progress': 0,
+    'for-approval': 0,
+    'ready-for-pickup': 0,
+    completed: 0,
+    cancelled: 0,
+  };
   for (const row of jobStats) jobs[row._id] = row.count;
 
   res.json({

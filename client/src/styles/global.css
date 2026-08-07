@@ -575,15 +575,16 @@ a:hover { text-decoration: underline; }
   padding: 4px 10px; border-radius: var(--radius-pill);
   white-space: nowrap;
 }
-.status-available, .status-approved, .status-completed, .status-present {
+.status-available, .status-approved, .status-completed, .status-present, .status-free {
   background: var(--success-soft); color: var(--success);
 }
-.status-absent, .status-denied, .status-cancelled { background: var(--danger-soft); color: var(--danger); }
-.status-on-duty, .status-in-progress { background: var(--orange-soft); color: var(--orange-deep); }
+.status-absent, .status-denied, .status-cancelled, .status-busy { background: var(--danger-soft); color: var(--danger); }
+.status-on-duty, .status-in-progress, .status-manageable { background: var(--orange-soft); color: var(--orange-deep); }
 .status-off-duty, .status-scheduled, .status-pending, .status-late {
   background: var(--gray-100); color: var(--gray-700);
 }
 .status-for-approval { background: #fef3c7; color: #b45309; }
+.status-ready-for-pickup { background: #dbeafe; color: #1d4ed8; }
 
 /* ----------------------------- chips ----------------------------- */
 .chip-list { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }

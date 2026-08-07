@@ -1,5 +1,5 @@
 /**
- * Manager Dashboard: Logs, Staff, Hours and Requests.
+ * Manager Dashboard: Logs, Staff (with hours) and Requests.
  * This is the "consolidated performance data" the shop never had.
  */
 import { useEffect, useState, useCallback } from 'react';
@@ -12,7 +12,7 @@ import Spinner from '../components/Spinner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import { toDateKey, formatDate, initials } from '../utils.js';
 
-const TABS = ['logs', 'staff', 'hours', 'requests'];
+const TABS = ['logs', 'staff', 'requests'];
 
 export default function Dashboard() {
   const [tab, setTab] = useState('logs');
@@ -64,6 +64,7 @@ export default function Dashboard() {
   if (!data) return <Spinner label="Loading the dashboard" />;
 
   const pending = requests.filter((r) => r.status === 'pending');
+  const hoursByEmployee = new Map(summary.map((row) => [row.employee?.id, row]));
 
   return (
     <div className="page">
@@ -122,67 +123,47 @@ export default function Dashboard() {
                 <th>Job title</th>
                 <th>Department</th>
                 <th>Status</th>
+                <th>Hours</th>
+                <th>Days present</th>
+                <th>Late</th>
+                <th>Absent</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {data.data.staff.map((s) => (
-                <tr key={s._id}>
-                  <td>
-                    <span className="avatar-sm">{initials(s.fullName)}</span>
-                    {s.fullName}
-                  </td>
-                  <td>{s.jobTitle}</td>
-                  <td>{s.department}</td>
-                  <td>
-                    <StatusBadge status={s.status} />
-                  </td>
-                  <td className="row-actions">
-                    <select value={s.status} onChange={(e) => setStatus(s._id, e.target.value)} aria-label={`Set status for ${s.fullName}`}>
-                      <option value="available">Available</option>
-                      <option value="on-duty">On duty</option>
-                      <option value="absent">Absent</option>
-                      <option value="off-duty">Off duty</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
+              {data.data.staff.map((s) => {
+                const hours = hoursByEmployee.get(String(s._id));
+                return (
+                  <tr key={s._id}>
+                    <td>
+                      <span className="avatar-sm">{initials(s.fullName)}</span>
+                      {s.fullName}
+                    </td>
+                    <td>{s.jobTitle}</td>
+                    <td>{s.department}</td>
+                    <td>
+                      <StatusBadge status={s.status} />
+                    </td>
+                    <td>
+                      <b>{hours?.totalHours ?? 0}</b>
+                      {hours?.targetHours && view === 'week' ? ` / ${hours.targetHours}` : ''}
+                    </td>
+                    <td>{hours?.daysPresent ?? 0}</td>
+                    <td>{hours?.daysLate ?? 0}</td>
+                    <td>{hours?.daysAbsent ?? 0}</td>
+                    <td className="row-actions">
+                      <select value={s.status} onChange={(e) => setStatus(s._id, e.target.value)} aria-label={`Set status for ${s.fullName}`}>
+                        <option value="available">Available</option>
+                        <option value="on-duty">On duty</option>
+                        <option value="absent">Absent</option>
+                        <option value="off-duty">Off duty</option>
+                      </select>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {tab === 'hours' && (
-        <div className="card table-card">
-          {summary.length ? (
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Hours</th>
-                  <th>Days present</th>
-                  <th>Late</th>
-                  <th>Absent</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.map((row) => (
-                  <tr key={row.employee?.id || Math.random()}>
-                    <td>{row.employee?.fullName || 'Removed account'}</td>
-                    <td>
-                      <b>{row.totalHours}</b>
-                      {row.targetHours && view === 'week' ? ` / ${row.targetHours}` : ''}
-                    </td>
-                    <td>{row.daysPresent}</td>
-                    <td>{row.daysLate}</td>
-                    <td>{row.daysAbsent}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <EmptyState title="No hours recorded in this range" hint="Hours appear once staff start clocking in." />
-          )}
         </div>
       )}
 

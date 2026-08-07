@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import MonthCalendar from '../components/MonthCalendar.jsx';
 import JobCard from '../components/JobCard.jsx';
 import Modal from '../components/Modal.jsx';
+import StatusBadge from '../components/StatusBadge.jsx';
 import Banner from '../components/Banner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import Spinner from '../components/Spinner.jsx';
@@ -184,6 +185,19 @@ export default function Schedule() {
   setModalOpen(true);
 }
 
+  function workloadStatus(personId) {
+    const activeJobs = jobs.filter((j) =>
+      j._id !== editingId &&
+      ['scheduled', 'in-progress'].includes(j.status) &&
+      Array.isArray(j.assignedTo) &&
+      j.assignedTo.some((a) => (a._id || a) === personId)
+    ).length;
+
+    if (activeJobs === 0) return 'free';
+    if (activeJobs <= 2) return 'manageable';
+    return 'busy';
+  }
+
   async function saveJob(e) {
     e.preventDefault();
     setError('');
@@ -215,11 +229,22 @@ export default function Schedule() {
     }
   }
 
-  async function markJobDone(job) {
+  async function approveJob(job) {
+    setError('');
+    try {
+      await jobsApi.update(job._id, { status: 'ready-for-pickup' });
+      setNotice(`"${job.title}" approved and marked ready for pickup`);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function markPickedUp(job) {
     setError('');
     try {
       await jobsApi.update(job._id, { status: 'completed' });
-      setNotice(`"${job.title}" marked as done`);
+      setNotice(`"${job.title}" marked as picked up`);
       await load();
     } catch (err) {
       setError(err.message);
@@ -273,16 +298,21 @@ export default function Schedule() {
   }
 
   function renderJobActions(job) {
-    const isActive = !['completed', 'cancelled'].includes(job.status);
+    const isActive = !['ready-for-pickup', 'completed', 'cancelled'].includes(job.status);
     const canSubmit = !isManager && ['scheduled', 'in-progress'].includes(job.status);
     const canLogWork = isActive && job.status !== 'for-approval';
-    const showDetails = ['for-approval', 'completed'].includes(job.status);
+    const showDetails = ['for-approval', 'ready-for-pickup', 'completed'].includes(job.status);
 
     return (
       <>
         {isManager && job.status === 'for-approval' && (
-          <button type="button" className="btn btn-sm btn-dark" onClick={() => markJobDone(job)}>
-            Mark as done
+          <button type="button" className="btn btn-sm btn-dark" onClick={() => approveJob(job)}>
+            Approve
+          </button>
+        )}
+        {isManager && job.status === 'ready-for-pickup' && (
+          <button type="button" className="btn btn-sm btn-dark" onClick={() => markPickedUp(job)}>
+            Mark picked up
           </button>
         )}
         {canSubmit && (
@@ -437,15 +467,19 @@ export default function Schedule() {
    todayKey <= toDateKey(j.endDate))
 );
   const todayJobsDisplay = isManager
-    ? todayJobs.filter((j) => j.status !== 'for-approval')
+    ? todayJobs.filter((j) => !['for-approval', 'ready-for-pickup'].includes(j.status))
     : todayJobs;
   const upcoming = jobs.filter(j =>
   j.status !== "in-progress" &&
   toDateKey(j.startDate) > todayKey
 );
+  const upcomingDisplay = isManager
+    ? upcoming.filter((j) => !['for-approval', 'ready-for-pickup'].includes(j.status))
+    : upcoming;
   const open = jobs.filter(
-  (j) => (!j.assignedTo || j.assignedTo.length === 0) && j.status === 'scheduled');  
+  (j) => (!j.assignedTo || j.assignedTo.length === 0) && j.status === 'scheduled');
   const pendingApproval = jobs.filter((j) => j.status === 'for-approval');
+  const readyForPickup = jobs.filter((j) => j.status === 'ready-for-pickup');
   const selectedLogJobs = Array.isArray(logDraft.work) ? logDraft.work : [];
 
   if (loading && !jobs.length) return <Spinner label="Loading the schedule" />;
@@ -525,6 +559,20 @@ export default function Schedule() {
             </section>
           )}
 
+          {isManager && readyForPickup.length > 0 && (
+            <section>
+              <p className="section-label">Ready for pickup</p>
+              {readyForPickup.map((job) => (
+                <JobCard
+                  key={job._id}
+                  job={job}
+                  showAssignee
+                  actions={renderJobActions(job)}
+                />
+              ))}
+            </section>
+          )}
+
           <section>
             <p className="section-label">Today&rsquo;s schedule</p>
             {todayJobsDisplay.length ? (
@@ -560,8 +608,8 @@ export default function Schedule() {
 
           <section>
             <p className="section-label">Upcoming schedules</p>
-            {upcoming.length ? (
-              upcoming.map((job) => (
+            {upcomingDisplay.length ? (
+              upcomingDisplay.map((job) => (
                 <JobCard
                   key={job._id}
                   job={job}
@@ -739,10 +787,13 @@ export default function Schedule() {
                 fontSize: "14px",
                 color: "#333",
                 lineHeight: "1.3",
+                flex: 1,
               }}
             >
               {person.fullName}
             </span>
+
+            <StatusBadge status={workloadStatus(person._id)} />
           </div>
         );
       })}
