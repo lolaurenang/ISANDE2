@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { dashboardApi } from '../api/client.js';
+import { dashboardApi, usersApi } from '../api/client.js';
 import LogEntry from '../components/LogEntry.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import Banner from '../components/Banner.jsx';
@@ -12,17 +12,28 @@ const TABS = ['logs', 'staff', 'accomplished'];
 export default function MechanicDashboard() {
   const [tab, setTab] = useState('logs');
   const [data, setData] = useState(null);
+  const [staffList, setStaffList] = useState([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
   const load = useCallback(async () => {
     try {
+      // 1. Fetch mechanic home dashboard data
       const dashRes = await dashboardApi.home();
       const payload = dashRes?.data || dashRes;
       setData(payload);
+
+      // 2. Fetch staff list from users endpoint (copied from Manager Dashboard source)
+      if (usersApi?.list) {
+        const staffRes = await usersApi.list();
+        const users = staffRes?.data || staffRes || [];
+        setStaffList(users);
+      } else if (payload.staff) {
+        setStaffList(payload.staff);
+      }
     } catch (err) {
       console.error('Dashboard error:', err);
-      setError(err.message || 'Failed to fetch dashboard data');
+      setError(err.message || 'Failed to load dashboard data');
     }
   }, []);
 
@@ -38,25 +49,23 @@ export default function MechanicDashboard() {
     );
   }
 
-  // Safely extract properties with fallback defaults
-  const logs = data?.logs || data?.data?.logs || [];
-  const staff = data?.staff || data?.data?.staff || [];
-  const jobs = data?.jobs || data?.data?.jobs || {};
+  // Safely extract mechanic activity logs and jobs
   const todayJobs = data?.todayJobs || [];
   const upcomingJobs = data?.upcoming || [];
 
-  // Filter completed jobs assigned to or completed by the mechanic
-  const accomplishedJobs = [
-    ...todayJobs,
-    ...upcomingJobs,
-    ...logs,
-  ].filter((job) => job.status === 'completed' || job.status === 'accomplished');
+  // Combine logs for the mechanic view
+  const activityLogs = [...todayJobs, ...upcomingJobs];
+
+  // Filter completed/accomplished jobs specifically for this mechanic
+  const accomplishedJobs = activityLogs.filter(
+    (job) => job.status === 'completed' || job.status === 'accomplished'
+  );
 
   return (
     <div className="page">
       <h1>Mechanic Dashboard</h1>
 
-      {/* Tabs */}
+      {/* Tabs Header */}
       <div className="tabs">
         {TABS.map((t) => (
           <button
@@ -70,50 +79,49 @@ export default function MechanicDashboard() {
         ))}
       </div>
 
-      {/* Optional Range Label */}
-      {data?.range && (
+      {data?.today && (
         <p className="range-label small">
-          {formatDate(data.range.from)} to {formatDate(data.range.to)}
+          Today: {formatDate(data.today)}
         </p>
       )}
 
       <Banner message={error} onDismiss={() => setError('')} />
       <Banner tone="success" message={notice} onDismiss={() => setNotice('')} />
 
-      {/* Logs Tab */}
+      {/* 1. Logs Tab */}
       {tab === 'logs' && (
         <section>
-          {jobs && (
-            <div className="stat-row">
-              <div className="stat">
-                <b>{jobs.scheduled ?? 0}</b>
-                <span>Scheduled</span>
-              </div>
-
-              <div className="stat">
-                <b>{jobs['in-progress'] ?? 0}</b>
-                <span>In progress</span>
-              </div>
-
-              <div className="stat">
-                <b>{jobs.completed ?? 0}</b>
-                <span>Completed</span>
-              </div>
+          <div className="stat-row">
+            <div className="stat">
+              <b>{todayJobs.length}</b>
+              <span>Today's Jobs</span>
             </div>
-          )}
 
-          {logs.length ? (
-            logs.map((log) => <LogEntry key={log._id || log.id} log={log} />)
+            <div className="stat">
+              <b>{upcomingJobs.length}</b>
+              <span>Upcoming</span>
+            </div>
+
+            <div className="stat">
+              <b>{accomplishedJobs.length}</b>
+              <span>Accomplished</span>
+            </div>
+          </div>
+
+          {activityLogs.length ? (
+            activityLogs.map((log) => (
+              <LogEntry key={log._id || log.id} log={log} />
+            ))
           ) : (
             <EmptyState
-              title="No activity logs found"
-              hint="Check back later for recent updates."
+              title="No activity in this view"
+              hint="Check back later for new task assignments."
             />
           )}
         </section>
       )}
 
-      {/* Staff Tab */}
+      {/* 2. Staff Tab (exact layout from Manager Dashboard) */}
       {tab === 'staff' && (
         <div className="card table-card">
           <table className="table">
@@ -127,8 +135,8 @@ export default function MechanicDashboard() {
             </thead>
 
             <tbody>
-              {staff.length ? (
-                staff.map((s) => (
+              {staffList.length ? (
+                staffList.map((s) => (
                   <tr key={s._id || s.id}>
                     <td>
                       <span className="avatar-sm">
@@ -148,7 +156,7 @@ export default function MechanicDashboard() {
               ) : (
                 <tr>
                   <td colSpan="4" style={{ textAlign: 'center' }}>
-                    No staff data available.
+                    No staff members found.
                   </td>
                 </tr>
               )}
@@ -157,7 +165,7 @@ export default function MechanicDashboard() {
         </div>
       )}
 
-      {/* Accomplished Tab */}
+      {/* 3. Accomplished Tab */}
       {tab === 'accomplished' && (
         <section>
           {accomplishedJobs.length ? (
@@ -167,7 +175,7 @@ export default function MechanicDashboard() {
           ) : (
             <EmptyState
               title="No accomplished jobs yet"
-              hint="Jobs marked as completed will appear in this list."
+              hint="Jobs marked as completed will appear here."
             />
           )}
         </section>
