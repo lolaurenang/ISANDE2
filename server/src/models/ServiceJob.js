@@ -16,7 +16,6 @@ export const SERVICE_TYPES = [
   'engine-tuneup',
   'overhaul',
   'wheel-alignment',
-  'supplier-delivery',
   'other',
 ];
 

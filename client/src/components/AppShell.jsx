@@ -12,10 +12,10 @@ import { initials } from '../utils.js';
 
 const NAV = [
   { to: '/home', icon: 'home', label: 'Home' },
-  { to: '/calendar', icon: 'calendar', label: 'Calendar' },
-  { to: '/schedule', icon: 'schedule', label: 'Schedule' },
+  { to: '/calendar', icon: 'calendar', label: 'Calendar', hideForStaff: true },
+  { to: '/schedule', icon: 'schedule', label: 'Schedule', hideForStaff: true },
   { to: '/dashboard',
-icon: 'manager', label: 'Dashboard', },
+icon: 'manager', label: 'Dashboard', hideForStaff: true },
   { to: '/reports', icon: 'report', label: 'Reports', managerOnly: true },
 ];
 
@@ -24,7 +24,9 @@ export default function AppShell({ children }) {
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
 
-  const items = NAV.filter((item) => !item.managerOnly || isManager);
+  const items = NAV.filter(
+    (item) => (!item.managerOnly || isManager) && (!item.hideForStaff || user?.role !== 'staff')
+  );
 
   const handleLogout = () => {
     logout();

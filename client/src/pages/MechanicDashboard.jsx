@@ -145,7 +145,10 @@ export default function MechanicDashboard() {
                     <td>{s.department || 'General'}</td>
 
                     <td>
-                      <StatusBadge status={s.status} />
+                      <StatusBadge
+                        status={s.clockedInToday ? 'on-duty' : 'unavailable'}
+                        label={s.clockedInToday ? 'Clocked in' : 'Not clocked in'}
+                      />
                     </td>
                   </tr>
                 ))

@@ -27,6 +27,12 @@ async function findConflicts({ employee, startDate, endDate, excludeId }) {
   return ServiceJob.find(query).select('title startDate endDate');
 }
 
+/** Approved leave days for the given employee inside the given window. */
+async function findLeaveConflicts({ employee, startDate, endDate }) {
+  const dates = eachDateKey(startDate, endDate);
+  return Availability.find({ employee, workDate: { $in: dates }, isAvailable: false }).select('workDate');
+}
+
 export const listJobs = asyncHandler(async (req, res) => {
   const { view, date, employee, status, unassigned } = req.query;
   const filter = {};
@@ -122,6 +128,14 @@ for (const employee of assignedTo) {
     throw ApiError.conflict(
       `That mechanic already has "${conflicts[0].title}" booked for those dates`,
       conflicts
+    );
+  }
+
+  const leaveConflicts = await findLeaveConflicts({ employee, startDate, endDate });
+  if (leaveConflicts.length) {
+    throw ApiError.conflict(
+      `That mechanic is on approved leave on ${leaveConflicts[0].workDate} and cannot be scheduled`,
+      leaveConflicts
     );
   }
 }
@@ -247,6 +261,18 @@ if (
       throw ApiError.conflict(
         `That change clashes with "${conflicts[0].title}"`,
         conflicts
+      );
+    }
+
+    const leaveConflicts = await findLeaveConflicts({
+      employee,
+      startDate: job.startDate,
+      endDate: job.endDate,
+    });
+    if (leaveConflicts.length) {
+      throw ApiError.conflict(
+        `That mechanic is on approved leave on ${leaveConflicts[0].workDate} and cannot be scheduled`,
+        leaveConflicts
       );
     }
   }

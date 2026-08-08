@@ -13,9 +13,11 @@ import Banner from '../components/Banner.jsx';
 import Spinner from '../components/Spinner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import { formatTime, greetingFor } from '../utils.js';
+import StaffRoster from '../components/StaffRoster.jsx';
 
 export default function Home() {
   const { user, setUser, isManager } = useAuth();
+  const isStaff = user?.role === 'staff';
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -71,7 +73,11 @@ export default function Home() {
           {greetingFor()}, <span>{user.fullName.split(' ')[0]}!</span>
         </h1>
         <p className="page-sub">
-          {isManager ? "Here is what is happening in the shop today." : 'Here is your schedule for today.'}
+          {isManager
+            ? 'Here is what is happening in the shop today.'
+            : isStaff
+            ? 'Clock in to start your shift.'
+            : 'Here is your schedule for today.'}
         </p>
       </header>
 
@@ -113,6 +119,7 @@ export default function Home() {
         </section>
 )}
 
+      {!isStaff && (
       <div className="home-grid">
         <div>
           <p className="section-label">Calendar</p>
@@ -151,38 +158,25 @@ export default function Home() {
           )}
 
           {isManager && (
-            <>
-              <section className="headcount">
-                <div className="stat">
-                  <b>{data.headcount.onDuty}</b>
-                  <span>On duty</span>
-                </div>
-                <div className="stat">
-                  <b>{data.headcount.available}</b>
-                  <span>Available</span>
-                </div>
-                <div className="stat">
-                  <b>{data.headcount.absent}</b>
-                  <span>Absent</span>
-                </div>
-                <div className="stat">
-                  <b>{data.pendingRequests}</b>
-                  <span>Requests</span>
-                </div>
-              </section>
-
-              <section>
-                <p className="section-label">Today&rsquo;s logs</p>
-                {data.todayLogs?.length ? (
-                  data.todayLogs.map((log) => <LogEntry key={log._id} log={log} />)
-                ) : (
-                  <EmptyState title="No activity yet today" hint="Logs appear here as staff clock in and record work." />
-                )}
-              </section>
-            </>
+            <section>
+              <p className="section-label">Today&rsquo;s logs</p>
+              {data.todayLogs?.length ? (
+                data.todayLogs.map((log) => <LogEntry key={log._id} log={log} />)
+              ) : (
+                <EmptyState title="No activity yet today" hint="Logs appear here as staff clock in and record work." />
+              )}
+            </section>
           )}
         </div>
       </div>
+      )}
+
+      {isStaff && (
+        <div style={{ marginTop: '24px' }}>
+          <p className="section-label">Staff</p>
+          <StaffRoster />
+        </div>
+      )}
     </div>
   );
 }

@@ -60,3 +60,18 @@ export function rangeFor(view, dateKey) {
   to.setHours(23, 59, 59, 999);
   return { from, to };
 }
+
+/**
+ * Same as rangeFor, but the "to" edge never reaches past today. Only for
+ * views that report on things that have already happened (hours worked,
+ * attendance, activity logs) - a job's Calendar/Schedule listing still
+ * needs the full month so upcoming, not-yet-happened work stays visible.
+ */
+export function rangeForElapsed(view, dateKey) {
+  const { from, to } = rangeFor(view, dateKey);
+  if (view === 'month' || view === 'year') {
+    const todayEnd = endOfDay(toDateKey());
+    if (to > todayEnd) return { from, to: todayEnd };
+  }
+  return { from, to };
+}

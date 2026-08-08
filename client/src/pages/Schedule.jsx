@@ -14,6 +14,7 @@ import Banner from '../components/Banner.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import Spinner from '../components/Spinner.jsx';
 import { toDateKey, formatDate } from '../utils.js';
+import { SERVICE_TYPES } from '../constants.js';
 
 const JOB_PERFORMED_OPTIONS = [
   "Inspection / Diagnosis",
@@ -35,17 +36,6 @@ const JOB_PERFORMED_OPTIONS = [
   "Waiting for Parts",
   "Assisted Another Employee",
   "Other"
-];
-
-const SERVICE_TYPES = [
-  ['motorcycle-repair', 'Motorcycle repair'],
-  ['bike-repair', 'Bike repair'],
-  ['oil-change', 'Oil change'],
-  ['engine-tuneup', 'Engine tune-up'],
-  ['overhaul', 'Overhaul'],
-  ['wheel-alignment', 'Wheel alignment'],
-  ['supplier-delivery', 'Supplier delivery'],
-  ['other', 'Other'],
 ];
 
 const emptyJob = () => ({

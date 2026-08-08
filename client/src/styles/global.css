@@ -596,7 +596,7 @@ a:hover { text-decoration: underline; }
 .status-available, .status-approved, .status-completed, .status-present, .status-free {
   background: var(--success-soft); color: var(--success);
 }
-.status-absent, .status-denied, .status-cancelled, .status-busy { background: var(--danger-soft); color: var(--danger); }
+.status-absent, .status-denied, .status-cancelled, .status-busy, .status-unavailable { background: var(--danger-soft); color: var(--danger); }
 .status-on-duty, .status-in-progress, .status-manageable { background: var(--orange-soft); color: var(--orange-deep); }
 .status-off-duty, .status-scheduled, .status-pending, .status-late {
   background: var(--gray-100); color: var(--gray-700);
@@ -719,4 +719,53 @@ a:hover { text-decoration: underline; }
   .week-col-head { display: flex; align-items: baseline; gap: 8px; text-align: left; }
 
   .request-card { flex-direction: column; }
+}
+
+/* ------------------------- reports / print ------------------------- */
+.report-toolbar {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px;
+  margin: 14px 0 18px;
+}
+.report-toolbar .field { min-width: 150px; }
+.report-toolbar .field label {
+  display: block; font-size: 0.72rem; font-weight: 600; color: var(--gray-500);
+  margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.02em;
+}
+.report-toolbar input[type="date"] {
+  border: 1px solid var(--gray-200); border-radius: var(--radius-sm);
+  padding: 8px 10px; font-size: 0.85rem; font-family: inherit;
+}
+
+.report-paper {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-md);
+  padding: 20px 22px;
+  margin-bottom: 22px;
+}
+.report-paper-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 12px; margin-bottom: 14px; flex-wrap: wrap;
+}
+.report-paper-head h2 { margin: 0 0 2px; font-size: 1.15rem; }
+.report-paper-head p { margin: 0; color: var(--gray-500); font-size: 0.82rem; }
+.report-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+@media print {
+  @page { size: A4; margin: 14mm; }
+  body { background: #fff; }
+  .rail, .tabbar, .no-print { display: none !important; }
+  .app-shell .main { margin: 0; padding: 0; max-width: none; }
+  .report-paper {
+    display: none;
+    border: none; border-radius: 0; padding: 0; margin: 0 0 24px;
+    break-inside: avoid;
+  }
+  .report-paper table th, .report-paper table td { font-size: 11px; padding: 6px 8px; }
+
+  body[data-print-only="hours"] .report-paper[data-report="hours"],
+  body[data-print-only="tasks"] .report-paper[data-report="tasks"],
+  body[data-print-only="status"] .report-paper[data-report="status"] {
+    display: block;
+  }
 }

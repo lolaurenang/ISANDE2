@@ -3,7 +3,7 @@
  * This is the "consolidated performance data" the shop never had.
  */
 import { useEffect, useState, useCallback } from 'react';
-import { dashboardApi, attendanceApi, requestsApi, usersApi } from '../api/client.js';
+import { dashboardApi, requestsApi } from '../api/client.js';
 import LogEntry from '../components/LogEntry.jsx';
 import ViewToggle from '../components/ViewToggle.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
@@ -18,20 +18,17 @@ export default function Dashboard() {
   const [tab, setTab] = useState('logs');
   const [view, setView] = useState('week');
   const [data, setData] = useState(null);
-  const [summary, setSummary] = useState([]);
   const [requests, setRequests] = useState([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
   const load = useCallback(async () => {
     try {
-      const [dashRes, sumRes, reqRes] = await Promise.all([
+      const [dashRes, reqRes] = await Promise.all([
         dashboardApi.manager({ view, date: toDateKey() }),
-        attendanceApi.summary({ view, date: toDateKey() }),
         requestsApi.list(),
       ]);
       setData(dashRes);
-      setSummary(sumRes.data);
       setRequests(reqRes.data);
     } catch (err) {
       setError(err.message);
@@ -52,20 +49,9 @@ export default function Dashboard() {
     }
   }
 
-  async function setStatus(userId, status) {
-    try {
-      await usersApi.update(userId, { status });
-      await load();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
   if (!data) return <Spinner label="Loading the dashboard" />;
 
   const pending = requests.filter((r) => r.status === 'pending');
-  const hoursByEmployee = new Map(summary.map((row) => [row.employee?.id, row]));
-  const completedByEmployee = data.data.completedCounts || {};
   // The manager doesn't need to see their own row in their own staff roster.
   const staffRows = data.data.staff.filter((s) => s.role !== 'manager');
 
@@ -129,51 +115,30 @@ export default function Dashboard() {
                 <th>Hours</th>
                 <th>Days present</th>
                 <th>Completed jobs</th>
-                <th />
               </tr>
             </thead>
             <tbody>
-              {staffRows.map((s) => {
-                const hours = hoursByEmployee.get(String(s._id));
-                const isMechanic = s.role === 'mechanic';
-                return (
-                  <tr key={s._id}>
-                    <td>
-                      <span className="avatar-sm">{initials(s.fullName)}</span>
-                      {s.fullName}
-                    </td>
-                    <td>{s.jobTitle}</td>
-                    <td>{s.department}</td>
-                    <td>
-                      <StatusBadge status={s.status} label={s.status === 'on-duty' ? 'Clocked in' : undefined} />
-                    </td>
-                    <td>
-                      <b>{hours?.totalHours ?? 0}</b>
-                    </td>
-                    <td>{hours?.daysPresent ?? 0}</td>
-                    <td>{completedByEmployee[s._id] ?? 0}</td>
-                    <td className="row-actions">
-                      {isMechanic ? (
-                        <select value={s.status} onChange={(e) => setStatus(s._id, e.target.value)} aria-label={`Set status for ${s.fullName}`}>
-                          <option value="available">Available</option>
-                          <option value="on-duty">On duty</option>
-                          <option value="absent">Absent</option>
-                          <option value="off-duty">Off duty</option>
-                        </select>
-                      ) : (
-                        <select
-                          value={s.status === 'on-duty' ? 'on-duty' : 'off-duty'}
-                          onChange={(e) => setStatus(s._id, e.target.value)}
-                          aria-label={`Set clock status for ${s.fullName}`}
-                        >
-                          <option value="on-duty">Clocked in</option>
-                          <option value="off-duty">Not clocked in</option>
-                        </select>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              {staffRows.map((s) => (
+                <tr key={s._id}>
+                  <td>
+                    <span className="avatar-sm">{initials(s.fullName)}</span>
+                    {s.fullName}
+                  </td>
+                  <td>{s.jobTitle}</td>
+                  <td>{s.department}</td>
+                  <td>
+                    <StatusBadge
+                      status={s.clockedInToday ? 'on-duty' : 'unavailable'}
+                      label={s.clockedInToday ? 'Clocked in' : 'Not clocked in'}
+                    />
+                  </td>
+                  <td>
+                    <b>{s.totalHours ?? 0}</b>
+                  </td>
+                  <td>{s.daysPresent ?? 0}</td>
+                  <td>{s.completedJobs ?? 0}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

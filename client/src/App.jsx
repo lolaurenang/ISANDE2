@@ -39,11 +39,24 @@ export default function App() {
       <Route path="/signup" element={user ? <Navigate to="/home" replace /> : <Signup />} />
 
       <Route path="/home" element={<Shell><Home /></Shell>} />
-      <Route path="/calendar" element={<Shell><Calendar /></Shell>} />
-      <Route path="/schedule" element={<Shell><Schedule /></Shell>} />
+      <Route path="/calendar" element={<Shell roles={['manager', 'mechanic']}><Calendar /></Shell>} />
+      <Route path="/schedule" element={<Shell roles={['manager', 'mechanic']}><Schedule /></Shell>} />
       <Route path="/notifications" element={<Shell><Notifications /></Shell>} />
       <Route path="/profile" element={<Shell><Profile /></Shell>} />
-      <Route path="/dashboard" element={<Shell>{user?.role === 'manager'? <Dashboard />: <MechanicDashboard />}</Shell>}/>
+      <Route
+        path="/dashboard"
+        element={
+          <Shell>
+            {user?.role === 'manager' ? (
+              <Dashboard />
+            ) : user?.role === 'staff' ? (
+              <Navigate to="/home" replace />
+            ) : (
+              <MechanicDashboard />
+            )}
+          </Shell>
+        }
+      />
       <Route path="/reports" element={<Shell roles={['manager']}><Reports /></Shell>} />
 
       <Route path="*" element={<NotFound />} />

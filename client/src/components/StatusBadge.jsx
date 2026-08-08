@@ -3,6 +3,7 @@ const LABELS = {
   'on-duty': 'On duty',
   absent: 'Absent',
   'off-duty': 'Off duty',
+  unavailable: 'Unavailable',
   scheduled: 'Scheduled',
   'in-progress': 'In progress',
   'for-approval': 'For approval',

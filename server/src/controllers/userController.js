@@ -7,6 +7,7 @@ import User from '../models/User.js';
 import ActivityLog from '../models/ActivityLog.js';
 import ApiError from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { withClockStatus } from '../utils/staffStats.js';
 
 export const listUsers = asyncHandler(async (req, res) => {
   const filter = {};
@@ -15,7 +16,8 @@ export const listUsers = asyncHandler(async (req, res) => {
   if (req.query.active !== 'all') filter.isActive = true;
 
   const users = await User.find(filter).sort({ role: 1, fullName: 1 });
-  res.json({ success: true, count: users.length, data: users });
+  const withStatus = await withClockStatus(users);
+  res.json({ success: true, count: withStatus.length, data: withStatus });
 });
 
 export const getUser = asyncHandler(async (req, res) => {

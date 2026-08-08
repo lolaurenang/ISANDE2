@@ -9,9 +9,9 @@ import Attendance from '../models/Attendance.js';
 import ActivityLog from '../models/ActivityLog.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
-import ShiftRequest from '../models/ShiftRequest.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { toDateKey, startOfDay, endOfDay, rangeFor } from '../utils/dates.js';
+import { toDateKey, startOfDay, endOfDay, rangeFor, rangeForElapsed } from '../utils/dates.js';
+import { withClockStatus, staffHoursAndJobs, mergeStaffStats } from '../utils/staffStats.js';
 
 /** Home screen for whoever is logged in. */
 export const home = asyncHandler(async (req, res) => {
@@ -42,26 +42,14 @@ export const home = asyncHandler(async (req, res) => {
     unreadCount,
   };
 
-  // Managers also get the live activity feed and a headcount.
+  // Managers also get the live activity feed.
   if (req.user.role === 'manager') {
-    const [logs, staff, pendingRequests] = await Promise.all([
-      ActivityLog.find({ loggedAt: { $gte: dayStart, $lte: dayEnd } })
-        .populate('employee', 'fullName jobTitle')
-        .sort({ loggedAt: -1 })
-        .limit(20),
-      User.find({ isActive: true }).select('fullName jobTitle department status role'),
-      ShiftRequest.countDocuments({ status: 'pending' }),
-    ]);
+    const logs = await ActivityLog.find({ loggedAt: { $gte: dayStart, $lte: dayEnd } })
+      .populate('employee', 'fullName jobTitle')
+      .sort({ loggedAt: -1 })
+      .limit(20);
 
     payload.todayLogs = logs;
-    payload.staff = staff;
-    payload.pendingRequests = pendingRequests;
-    payload.headcount = {
-      total: staff.length,
-      onDuty: staff.filter((s) => s.status === 'on-duty').length,
-      available: staff.filter((s) => s.status === 'available').length,
-      absent: staff.filter((s) => s.status === 'absent').length,
-    };
   }
 
   res.json({ success: true, data: payload });
@@ -70,28 +58,31 @@ export const home = asyncHandler(async (req, res) => {
 /** Manager dashboard: Logs tab + Staff tab, filtered by week/month/year. */
 export const managerDashboard = asyncHandler(async (req, res) => {
   const view = req.query.view || 'week';
-  const { from, to } = rangeFor(view, req.query.date || toDateKey());
+  // Logs/attendance can't exist for days that haven't happened yet, but
+  // the "Scheduled" job count for the rest of the month should still show
+  // up - so only the log window gets capped at today.
+  const { from, to } = rangeForElapsed(view, req.query.date || toDateKey());
+  const jobRange = rangeFor(view, req.query.date || toDateKey());
+  const fromKey = toDateKey(from);
+  const toKey = toDateKey(to);
 
-  const [logs, staff, jobStats, completedByEmployee] = await Promise.all([
+  const [logs, staff, jobStats, stats] = await Promise.all([
     ActivityLog.find({ loggedAt: { $gte: from, $lte: to } })
       .populate('employee', 'fullName jobTitle department')
       .sort({ loggedAt: -1 })
       .limit(200),
     // The manager doesn't need to see themselves in their own staff roster.
     User.find({ isActive: true, role: { $ne: 'manager' } })
-      .select('fullName jobTitle department status role avatarUrl')
+      .select('fullName jobTitle department role avatarUrl')
       .sort({ role: 1, fullName: 1 }),
     ServiceJob.aggregate([
-      { $match: { startDate: { $lte: to }, endDate: { $gte: from } } },
+      { $match: { startDate: { $lte: jobRange.to }, endDate: { $gte: jobRange.from } } },
       { $group: { _id: '$status', count: { $sum: 1 } } },
     ]),
-    // Completed jobs per mechanic in this range - replaces the old
-    // late/absent columns with something the manager actually asked for.
-    ServiceJob.aggregate([
-      { $match: { status: 'completed', completedAt: { $gte: from, $lte: to } } },
-      { $unwind: '$assignedTo' },
-      { $group: { _id: '$assignedTo', count: { $sum: 1 } } },
-    ]),
+    // Same query shape the Reports page uses, so the numbers here are
+    // never a step removed from what a "List of tasks accomplished" /
+    // "Employee hours worked" report would show for the same range.
+    staffHoursAndJobs({ from, to, fromKey, toKey }),
   ]);
 
   const jobs = {
@@ -104,20 +95,28 @@ export const managerDashboard = asyncHandler(async (req, res) => {
   };
   for (const row of jobStats) jobs[row._id] = row.count;
 
-  const completedCounts = {};
-  for (const row of completedByEmployee) completedCounts[String(row._id)] = row.count;
+  // Clocking in is the only thing that can make someone "available" -
+  // there's no manager-set toggle, employees confirm their own attendance.
+  const staffWithClock = await withClockStatus(staff);
+  const staffWithHours = mergeStaffStats(staff.map((s) => s.toObject()), stats);
+  const hoursById = new Map(staffWithHours.map((s) => [String(s._id), s]));
+  const staffFinal = staffWithClock.map((s) => ({ ...s, ...hoursById.get(String(s._id)) }));
 
   res.json({
     success: true,
     range: { view, from: toDateKey(from), to: toDateKey(to) },
-    data: { logs, staff, jobs, completedCounts },
+    data: { logs, staff: staffFinal, jobs },
   });
 });
 
 /** Personal dashboard for any staff member: Logs tab, scoped to me. Same query shape as managerDashboard. */
 export const myDashboard = asyncHandler(async (req, res) => {
   const view = req.query.view || 'week';
-  const { from, to } = rangeFor(view, req.query.date || toDateKey());
+  // Logs can never exist for days that haven't happened yet, but a
+  // mechanic's scheduled/in-progress work for the rest of the month should
+  // still count - so only the log window gets capped at today.
+  const { from, to } = rangeForElapsed(view, req.query.date || toDateKey());
+  const jobRange = rangeFor(view, req.query.date || toDateKey());
 
   const [logs, jobStats] = await Promise.all([
     ActivityLog.find({ employee: req.user.id, loggedAt: { $gte: from, $lte: to } })
@@ -126,7 +125,7 @@ export const myDashboard = asyncHandler(async (req, res) => {
       .sort({ loggedAt: -1 })
       .limit(200),
     ServiceJob.aggregate([
-      { $match: { assignedTo: req.user._id, startDate: { $lte: to }, endDate: { $gte: from } } },
+      { $match: { assignedTo: req.user._id, startDate: { $lte: jobRange.to }, endDate: { $gte: jobRange.from } } },
       { $group: { _id: '$status', count: { $sum: 1 } } },
     ]),
   ]);

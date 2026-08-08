@@ -164,12 +164,6 @@ const serviceTemplates = [
     priority: 'normal',
   },
   {
-    title: 'Supplier Delivery',
-    serviceType: 'supplier-delivery',
-    description: 'Receive and verify spare parts delivery, then record the items against the order.',
-    priority: 'low',
-  },
-  {
     title: 'Motorcycle Repair',
     serviceType: 'motorcycle-repair',
     description: 'Fix chain slack, lubricate the drivetrain, and check gear shifting.',
@@ -186,12 +180,6 @@ const serviceTemplates = [
     serviceType: 'engine-tuneup',
     description: 'Conduct a preventive maintenance check and confirm the fuel injection response.',
     priority: 'high',
-  },
-  {
-    title: 'Supplier Delivery',
-    serviceType: 'supplier-delivery',
-    description: 'Sort received stock, verify quantities, and prepare items for storage.',
-    priority: 'normal',
   },
   {
     title: 'Motorcycle Repair',
@@ -249,12 +237,12 @@ async function run() {
 
   console.log(`[seed] ${createdUsers.length} accounts created (password: ${PASSWORD})`);
 
-const taskBase = new Date('2026-05-15T09:00:00');
-const endMonth = new Date('2026-08-15T17:00:00');
+const taskBase = new Date('2026-05-02T09:00:00');
+const endMonth = new Date('2026-08-31T17:00:00');
 // "Now" anchors which jobs read as history vs. upcoming work, so the
 // Schedule, Dashboard and Calendar all have something realistic to show
 // no matter when this seed script is actually run.
-const now = new Date('2026-05-15T10:00:00');
+const now = new Date();
 
 const jobs = [];
 let currentDate = new Date(taskBase);
@@ -265,7 +253,14 @@ while (currentDate <= endMonth) {
   // Skip Sundays
   if (currentDate.getDay() !== 0) {
 
-    const jobsToday = 1 + 1;
+    const isFuture = currentDate > now;
+    // History can stay dense - it's already resolved and doesn't block
+    // anything, and gives the reports plenty of completed jobs to show.
+    // Upcoming days need real gaps, or every mechanic looks "busy" on
+    // every date and a manager can never book new work.
+    const jobsToday = isFuture
+      ? (Math.random() < 0.35 ? 0 : Math.random() < 0.7 ? 1 : 2)
+      : Math.floor(Math.random() * 3) + 2;
 
     for (let j = 0; j < jobsToday; j++) {
 
@@ -328,7 +323,7 @@ while (currentDate <= endMonth) {
       }
 
       jobs.push({
-        title: `${template.title}`,
+        title: template.title,
         description: template.description,
         serviceType: template.serviceType,
         clientName,
@@ -355,90 +350,46 @@ await ServiceJob.create(jobs);
 
 console.log(`[seed] ${jobs.length} service jobs created`);
 
-  const attendanceDate = new Date('2026-05-05T00:00:00');
-  const at = (h, m) => setTime(attendanceDate, h, m);
+  // Spread real attendance across the whole working period instead of a
+  // single hardcoded day, so hours/days-present actually mean something in
+  // the Dashboard and the new hours-worked report.
+  const attendanceStaffEmails = staff.filter((s) => s.role !== 'manager').map((s) => s.email);
+  const attendanceEnd = now < endMonth ? now : endMonth;
 
-await Attendance.create([
-  // Sales
-  {
-    employee: byEmail['charmaine@andoys.ph']._id,
-    workDate: toDateKey(attendanceDate),
-    clockIn: at(8, 0),
-    clockOut: at(17, 0),
-    minutesWorked: 1540,
-    status: 'present',
-  },
-  {
-    employee: byEmail['loida@andoys.ph']._id,
-    workDate: toDateKey(attendanceDate),
-    clockIn: at(8, 6),
-    clockOut: at(17, 2),
-    minutesWorked: 1536,
-    status: 'present',
-  },
-  {
-    employee: byEmail['dannilyn@andoys.ph']._id,
-    workDate: toDateKey(attendanceDate),
-    clockIn: at(8, 12),
-    clockOut: at(17, 1),
-    minutesWorked: 1529,
-    status: 'present',
-  },
+  const attendanceRecords = [];
+  let attCursor = new Date(taskBase);
+  while (attCursor <= attendanceEnd) {
+    if (!isSunday(attCursor)) {
+      for (const email of attendanceStaffEmails) {
+        // A few unmarked absences keep the data honest instead of a
+        // suspiciously perfect 100% attendance record.
+        if (Math.random() < 0.06) continue;
 
-  // Marketing
-  {
-    employee: byEmail['charlesdavid@andoys.ph']._id,
-    workDate: toDateKey(attendanceDate),
-    clockIn: at(8, 3),
-    clockOut: at(17, 6),
-    minutesWorked: 1543,
-    status: 'present',
-  },
-  {
-    employee: byEmail['ferdiand@andoys.ph']._id,
-    workDate: toDateKey(attendanceDate),
-    clockIn: at(8, 18),
-    clockOut: at(17, 4),
-    minutesWorked: 1526,
-    status: 'present',
-  },
+        const isLate = Math.random() < 0.12;
+        const inMinute = isLate ? 31 + Math.floor(Math.random() * 25) : Math.floor(Math.random() * 20);
+        const clockIn = setTime(attCursor, 8, inMinute);
+        const outMinute = Math.floor(Math.random() * 25);
+        const clockOut = setTime(attCursor, 17, outMinute);
+        const minutesWorked = Math.max(0, Math.round((clockOut.getTime() - clockIn.getTime()) / 60000));
 
-  // Mechanics
-  {
-    employee: byEmail['jethro@andoys.ph']._id,
-    workDate: toDateKey(attendanceDate),
-    clockIn: at(8, 5),
-    clockOut: at(17, 10),
-    minutesWorked: 2545,
-    status: 'present',
-  },
-  {
-    employee: byEmail['donifer@andoys.ph']._id,
-    workDate: toDateKey(attendanceDate),
-    clockIn: at(8, 15),
-    clockOut: at(17, 0),
-    minutesWorked: 1525,
-    status: 'present',
-  },
-  {
-    employee: byEmail['joven@andoys.ph']._id,
-    workDate: toDateKey(attendanceDate),
-    clockIn: at(8, 25),
-    clockOut: at(17, 20),
-    minutesWorked: 1535,
-    status: 'late',
-  },
+        attendanceRecords.push({
+          employee: byEmail[email]._id,
+          workDate: toDateKey(attCursor),
+          clockIn,
+          clockOut,
+          minutesWorked,
+          status: isLate ? 'late' : 'present',
+        });
+      }
+    }
+    attCursor = dayOffset(attCursor, 1);
+  }
 
-  // Accounting
-  {
-    employee: byEmail['rockjohn@andoys.ph']._id,
-    workDate: toDateKey(attendanceDate),
-    clockIn: at(8, 10),
-    clockOut: at(17, 0),
-    minutesWorked: 530,
-    status: 'present',
-  },
-]);
+  await Attendance.insertMany(attendanceRecords);
+  console.log(`[seed] ${attendanceRecords.length} attendance records created`);
+
+  const activityLogBase = new Date('2026-05-05T00:00:00');
+  const at = (h, m) => setTime(activityLogBase, h, m);
 
   await ActivityLog.create([
     {
