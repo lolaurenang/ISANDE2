@@ -71,6 +71,9 @@ export function buildWeek(anchor = new Date()) {
 
 /** True when `key` (YYYY-MM-DD) falls inside a job's start..end range. */
 export function jobCoversDate(job, key) {
+  // The shop is closed Sundays, so nothing ever shows as happening that day -
+  // even a job whose range spans across one.
+  if (new Date(`${key}T00:00:00`).getDay() === 0) return false;
   return toDateKey(job.startDate) <= key && key <= toDateKey(job.endDate);
 }
 

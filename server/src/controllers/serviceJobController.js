@@ -11,9 +11,14 @@ import Notification from '../models/Notification.js';
 import ActivityLog from '../models/ActivityLog.js';
 import ApiError from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { toDateKey, rangeFor, eachDateKey } from '../utils/dates.js';
+import { toDateKey, rangeFor, eachDateKey, startOfDay } from '../utils/dates.js';
 
 const fmt = (d) => new Date(d).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
+
+/** The shop is closed Sundays - the crew works a 6-day week. */
+function findSunday(startDate, endDate) {
+  return eachDateKey(startDate, endDate).find((key) => startOfDay(key).getDay() === 0);
+}
 
 /** Jobs that overlap the given window for the given employee. */
 async function findConflicts({ employee, startDate, endDate, excludeId }) {
@@ -116,6 +121,11 @@ export const getJobDetails = asyncHandler(async (req, res) => {
 
 export const createJob = asyncHandler(async (req, res) => {
 const { assignedTo = [], startDate, endDate } = req.body;
+
+const sunday = findSunday(startDate, endDate);
+if (sunday) {
+  throw ApiError.badRequest(`The shop is closed on Sundays - ${sunday} cannot be scheduled`);
+}
 
 for (const employee of assignedTo) {
   const conflicts = await findConflicts({
@@ -243,6 +253,13 @@ export const updateJob = asyncHandler(async (req, res) => {
 
   for (const key of fields) {
     if (req.body[key] !== undefined) job[key] = req.body[key];
+  }
+
+  if (req.body.startDate || req.body.endDate) {
+    const sunday = findSunday(job.startDate, job.endDate);
+    if (sunday) {
+      throw ApiError.badRequest(`The shop is closed on Sundays - ${sunday} cannot be scheduled`);
+    }
   }
 
 if (
