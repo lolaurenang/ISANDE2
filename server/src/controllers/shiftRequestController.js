@@ -24,6 +24,13 @@ export const listRequests = asyncHandler(async (req, res) => {
 });
 
 export const createRequest = asyncHandler(async (req, res) => {
+  const existing = await ShiftRequest.findOne({
+    requestedBy: req.user.id,
+    workDate: req.body.workDate,
+    status: { $in: ['pending', 'approved'] },
+  });
+  if (existing) throw ApiError.conflict('You already have a leave request for that date');
+
   const request = await ShiftRequest.create({
     ...req.body,
     type: 'leave',

@@ -6,7 +6,7 @@
 import Availability from '../models/Availability.js';
 import ApiError from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { toDateKey, rangeFor } from '../utils/dates.js';
+import { toDateKey, rangeFor, isValidDateKey } from '../utils/dates.js';
 import ShiftRequest from '../models/ShiftRequest.js';
 
 async function hasApprovedLeave(employee, workDate) {
@@ -69,12 +69,17 @@ export const setAvailabilityBulk = asyncHandler(async (req, res) => {
   if (!Array.isArray(dates) || !dates.length) {
     throw ApiError.badRequest('Send a "dates" array of YYYY-MM-DD strings');
   }
+  if (dates.some((workDate) => !isValidDateKey(workDate))) {
+    throw ApiError.badRequest('Every date must be a real YYYY-MM-DD calendar date');
+  }
+
+  const uniqueDates = [...new Set(dates)];
 
   const blocked = await ShiftRequest.find({
     requestedBy: req.user.id,
     type: 'leave',
     status: 'approved',
-    workDate: { $in: dates },
+    workDate: { $in: uniqueDates },
   }).select('workDate');
 
   if (blocked.length) {
@@ -83,18 +88,19 @@ export const setAvailabilityBulk = asyncHandler(async (req, res) => {
     );
   }
 
-  const ops = dates.map((workDate) => ({
+  const ops = uniqueDates.map((workDate) => ({
     updateOne: {
       filter: { employee: req.user.id, workDate },
       update: { $set: { isAvailable: true } },
       upsert: true,
+      runValidators: true,
     },
   }));
 
   await Availability.bulkWrite(ops);
-  const slots = await Availability.find({ employee: req.user.id, workDate: { $in: dates } });
+  const slots = await Availability.find({ employee: req.user.id, workDate: { $in: uniqueDates } });
 
-  res.status(201).json({ success: true, message: `${dates.length} days saved`, data: slots });
+  res.status(201).json({ success: true, message: `${uniqueDates.length} days saved`, data: slots });
 });
 
 export const removeAvailability = asyncHandler(async (req, res) => {

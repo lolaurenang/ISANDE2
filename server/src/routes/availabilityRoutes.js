@@ -18,7 +18,12 @@ router.get('/roster', authorize('manager'), availabilityRoster);
 
 router.post(
   '/',
-  [body('workDate').matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('workDate must be YYYY-MM-DD')],
+  [
+    body('workDate')
+      .matches(/^\d{4}-\d{2}-\d{2}$/)
+      .isISO8601({ strict: true })
+      .withMessage('workDate must be a real YYYY-MM-DD date'),
+  ],
   validate,
   setAvailability
 );

@@ -10,7 +10,11 @@ import { toDateKey } from './dates.js';
 
 /** Who has an attendance record today - the only thing "clocked in" means. */
 export async function clockedInTodaySet() {
-  const rows = await Attendance.find({ workDate: toDateKey() }).select('employee');
+  const rows = await Attendance.find({
+    workDate: toDateKey(),
+    clockIn: { $ne: null },
+    clockOut: null,
+  }).select('employee');
   return new Set(rows.map((r) => String(r.employee)));
 }
 

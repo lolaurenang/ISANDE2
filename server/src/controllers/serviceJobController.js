@@ -38,6 +38,26 @@ async function findLeaveConflicts({ employee, startDate, endDate }) {
   return Availability.find({ employee, workDate: { $in: dates }, isAvailable: false }).select('workDate');
 }
 
+function normalizeAssignees(value) {
+  if (value == null) return [];
+  if (!Array.isArray(value)) throw ApiError.badRequest('assignedTo must be an array');
+  const ids = value.map(String);
+  if (new Set(ids).size !== ids.length) throw ApiError.badRequest('A mechanic can only be assigned once');
+  return value;
+}
+
+async function validateAssignees(assignees) {
+  if (!assignees.length) return;
+  const users = await User.find({ _id: { $in: assignees }, isActive: true }).select('_id role');
+  if (users.length !== assignees.length || users.some((user) => user.role !== 'mechanic')) {
+    throw ApiError.badRequest('Jobs can only be assigned to active mechanic accounts');
+  }
+}
+
+function canAccessJob(user, job) {
+  return user.role === 'manager' || !job.assignedTo?.length || job.assignedTo.some((id) => String(id) === user.id);
+}
+
 export const listJobs = asyncHandler(async (req, res) => {
   const { view, date, employee, status, unassigned } = req.query;
   const filter = {};
@@ -50,17 +70,17 @@ export const listJobs = asyncHandler(async (req, res) => {
 
   if (status) filter.status = status.includes(',') ? { $in: status.split(',') } : status;
   // Hide finished jobs from the calendar/schedule by default.
-  if (!status) {
-  filter.status = { $ne: 'completed' };
-}
-  if (unassigned === 'true') filter.assignedTo = null;
+  if (!status) filter.status = { $nin: ['completed', 'cancelled'] };
+
+  const openJobFilter = [{ assignedTo: null }, { assignedTo: { $size: 0 } }];
+  if (unassigned === 'true') filter.$or = openJobFilter;
 
   // Managers see the whole shop; everyone else sees their own jobs
   // plus anything still unassigned that they could pick up.
   if (req.user.role === 'manager') {
     if (employee) filter.assignedTo = employee;
-  } else {
-    filter.$or = [{ assignedTo: req.user.id }, { assignedTo: null }];
+  } else if (unassigned !== 'true') {
+    filter.$or = [{ assignedTo: req.user.id }, ...openJobFilter];
   }
 
   const jobs = await ServiceJob.find(filter)
@@ -77,6 +97,7 @@ export const getJob = asyncHandler(async (req, res) => {
     .populate('createdBy', 'fullName')
     .populate('submittedBy', 'fullName');
   if (!job) throw ApiError.notFound('That job does not exist');
+  if (!canAccessJob(req.user, job)) throw ApiError.forbidden('That job is not assigned to you');
   res.json({ success: true, data: job });
 });
 
@@ -86,6 +107,7 @@ export const getJobDetails = asyncHandler(async (req, res) => {
     .populate('assignedTo', 'fullName jobTitle')
     .populate('submittedBy', 'fullName');
   if (!job) throw ApiError.notFound('That job does not exist');
+  if (!canAccessJob(req.user, job)) throw ApiError.forbidden('That job is not assigned to you');
 
   const workLogs = await ActivityLog.find({ relatedJob: job._id, type: 'work' })
     .populate('employee', 'fullName')
@@ -120,7 +142,9 @@ export const getJobDetails = asyncHandler(async (req, res) => {
 });
 
 export const createJob = asyncHandler(async (req, res) => {
-const { assignedTo = [], startDate, endDate } = req.body;
+const { startDate, endDate } = req.body;
+const assignedTo = normalizeAssignees(req.body.assignedTo);
+await validateAssignees(assignedTo);
 
 const sunday = findSunday(startDate, endDate);
 if (sunday) {
@@ -150,7 +174,7 @@ for (const employee of assignedTo) {
   }
 }
 
-  const job = await ServiceJob.create({ ...req.body, createdBy: req.user.id });
+  const job = await ServiceJob.create({ ...req.body, assignedTo, createdBy: req.user.id });
 
   if (job.assignedTo?.length) {
     await Promise.all(
@@ -175,6 +199,10 @@ export const updateJob = asyncHandler(async (req, res) => {
   if (!job) throw ApiError.notFound('That job does not exist');
 
   const isManager = req.user.role === 'manager';
+  if (req.body.assignedTo !== undefined) {
+    req.body.assignedTo = normalizeAssignees(req.body.assignedTo);
+    if (isManager) await validateAssignees(req.body.assignedTo);
+  }
   // assignedTo is an array (a job can have more than one mechanic on it),
   // so ownership means "I'm one of the people on this job" - not a direct
   // equality check against the whole array.
@@ -402,6 +430,9 @@ export const deleteJob = asyncHandler(async (req, res) => {
 export const logWork = asyncHandler(async (req, res) => {
   const job = await ServiceJob.findById(req.params.id);
   if (!job) throw ApiError.notFound('That job does not exist');
+  if (req.user.role !== 'manager' && !job.assignedTo.some((id) => String(id) === req.user.id)) {
+    throw ApiError.forbidden('You can only log work on a job assigned to you');
+  }
 
   const { work, clientName } = req.body;
   // Each person logs their own work - assignedTo is an array (a job can
