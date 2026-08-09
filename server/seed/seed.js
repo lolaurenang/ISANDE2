@@ -459,7 +459,7 @@ console.log(`[seed] ${jobs.length} service jobs created`);
   await Availability.insertMany(availability);
   console.log(`[seed] ${availability.length} availability slots created`);
 
-  const leaveDate = toDateKey(new Date('2026-02-12T00:00:00'));
+  const leaveDate = toDateKey(new Date('2026-08-14T00:00:00'));
   await ShiftRequest.create({
     requestedBy: byEmail['donifer@andoys.ph']._id,
     type: 'leave',
