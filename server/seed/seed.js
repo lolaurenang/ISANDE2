@@ -354,7 +354,11 @@ console.log(`[seed] ${jobs.length} service jobs created`);
   // single hardcoded day, so hours/days-present actually mean something in
   // the Dashboard and the new hours-worked report.
   const attendanceStaffEmails = staff.filter((s) => s.role !== 'manager').map((s) => s.email);
-  const attendanceEnd = now < endMonth ? now : endMonth;
+  // Stop the day before "today" so the seed never fabricates a
+  // finished shift for a day that hasn't actually happened yet -
+  // that would block real clock-ins on the current day.
+  const attendanceEnd = dayOffset(now < endMonth ? now : endMonth, -1);
+  attendanceEnd.setHours(23, 59, 59, 999);
 
   const attendanceRecords = [];
   let attCursor = new Date(taskBase);

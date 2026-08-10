@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { usersApi, authApi, requestsApi } from '../api/client.js';
 import Banner from '../components/Banner.jsx';
 import Modal from '../components/Modal.jsx';
-import { initials, toDateKey } from '../utils.js';
+import StatusBadge from '../components/StatusBadge.jsx';
+import EmptyState from '../components/EmptyState.jsx';
+import { initials, toDateKey, formatDate } from '../utils.js';
 
 export default function Profile() {
   const { user, setUser, logout } = useAuth();
@@ -19,8 +21,23 @@ export default function Profile() {
   const [pw, setPw] = useState({ currentPassword: '', newPassword: '' });
   const [reqOpen, setReqOpen] = useState(false);
   const [req, setReq] = useState({ workDate: toDateKey(), reason: '' });
+  const [myRequests, setMyRequests] = useState([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+
+  const loadRequests = useCallback(async () => {
+    if (user.role === 'manager') return;
+    try {
+      const res = await requestsApi.list();
+      setMyRequests(res.data);
+    } catch (err) {
+      setError(err.message);
+    }
+  }, [user.role]);
+
+  useEffect(() => {
+    loadRequests();
+  }, [loadRequests]);
 
   async function save(e) {
     e.preventDefault();
@@ -53,6 +70,17 @@ export default function Profile() {
       setReqOpen(false);
       setReq({ workDate: toDateKey(), reason: '' });
       setNotice('Request sent to your manager');
+      await loadRequests();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function withdrawRequest(id) {
+    try {
+      await requestsApi.cancel(id);
+      setNotice('Request withdrawn');
+      await loadRequests();
     } catch (err) {
       setError(err.message);
     }
@@ -144,6 +172,37 @@ export default function Profile() {
           Log out
         </button>
       </div>
+
+      {user.role !== 'manager' && (
+        <>
+          <p className="section-label">Your leave requests</p>
+          {myRequests.length ? (
+            myRequests.map((r) => (
+              <article key={r._id} className="request-card">
+                <div>
+                  <p className="request-title">{r.type.replace('-', ' ')}</p>
+                  <p className="request-date">{formatDate(r.workDate)}</p>
+                  <p className="request-reason">{r.reason}</p>
+                </div>
+                <div className="request-actions">
+                  <StatusBadge status={r.status} />
+                  {r.status === 'pending' && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-ghost"
+                      onClick={() => withdrawRequest(r._id)}
+                    >
+                      Withdraw
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))
+          ) : (
+            <EmptyState title="No requests yet" hint="Requests you send to your manager will show up here." />
+          )}
+        </>
+      )}
 
       <Modal open={pwOpen} title="Change password" onClose={() => setPwOpen(false)}>
         <form className="stack-form" onSubmit={changePassword}>

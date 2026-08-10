@@ -79,6 +79,7 @@ export default function Schedule() {
   const [anchor, setAnchor] = useState(new Date());
 
   const [jobs, setJobs] = useState([]);
+  const [completedJobs, setCompletedJobs] = useState([]);
   const [slots, setSlots] = useState([]);
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -106,11 +107,15 @@ export default function Schedule() {
       const monthStart = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
       const monthEnd = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
 
-      const [jobRes, slotRes] = await Promise.all([
+      const [jobRes, doneRes, slotRes] = await Promise.all([
         jobsApi.list({ view: 'month', date: toDateKey(anchor) }),
+        jobsApi.list({ view: 'month', date: toDateKey(anchor), status: 'completed' }),
         availabilityApi.list({ from: toDateKey(monthStart), to: toDateKey(monthEnd) }),
       ]);
       setJobs(jobRes.data);
+      setCompletedJobs(
+        [...doneRes.data].sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
+      );
       setSlots(slotRes.data);
 
       if (isManager && !staff.length) {
@@ -498,6 +503,9 @@ export default function Schedule() {
         <button type="button" className={tab === 'jobs' ? 'active' : ''} onClick={() => setTab('jobs')}>
           Jobs
         </button>
+        <button type="button" className={tab === 'done' ? 'active' : ''} onClick={() => setTab('done')}>
+          Done
+        </button>
       </div>
 
       <Banner message={error} onDismiss={() => setError('')} />
@@ -639,6 +647,26 @@ export default function Schedule() {
               ))
             ) : (
               <EmptyState title="Nothing booked after today" />
+            )}
+          </section>
+        </div>
+      )}
+
+      {tab === 'done' && (
+        <div className="schedule-stack">
+          <section>
+            <p className="section-label">Completed this month</p>
+            {completedJobs.length ? (
+              completedJobs.map((job) => (
+                <JobCard
+                  key={job._id}
+                  job={job}
+                  showAssignee
+                  actions={renderJobActions(job)}
+                />
+              ))
+            ) : (
+              <EmptyState title="No jobs finished yet this month" />
             )}
           </section>
         </div>

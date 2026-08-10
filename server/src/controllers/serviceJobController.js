@@ -304,6 +304,14 @@ if (
     const reopened =
       requestedStatus && ['scheduled', 'in-progress'].includes(requestedStatus) && previousStatus !== requestedStatus;
     if (reassigned || reopened) job.completedBy = [];
+
+    // Reassigning the crew on a job that's already sitting in "for
+    // approval" has to pull it back into progress - otherwise it could
+    // be approved with a newly added mechanic never getting a chance to
+    // log their part.
+    if (reassigned && requestedStatus === undefined && job.status === 'for-approval') {
+      job.status = 'in-progress';
+    }
   }
 
   if (job.status === 'for-approval' && previousStatus !== 'for-approval') {
