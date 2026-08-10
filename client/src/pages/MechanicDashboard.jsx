@@ -14,16 +14,24 @@ const TABS = ['logs', 'staff', 'accomplished'];
 export default function MechanicDashboard() {
   const [tab, setTab] = useState('logs');
   const [view, setView] = useState('week');
+  const [customRange, setCustomRange] = useState({ from: '', to: '' });
   const [data, setData] = useState(null);
   const [staffList, setStaffList] = useState([]);
   const [accomplishedJobs, setAccomplishedJobs] = useState([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
+  const hasCustomRange = Boolean(customRange.from && customRange.to);
+
+  function pickView(v) {
+    setView(v);
+    setCustomRange({ from: '', to: '' });
+  }
+
   const load = useCallback(async () => {
   try {
     const [dashRes, jobsRes] = await Promise.all([
-      dashboardApi.logs({ view, date: toDateKey() }),
+      dashboardApi.logs(hasCustomRange ? customRange : { view, date: toDateKey() }),
       jobsApi.list({ view, date: toDateKey(), status: 'ready-for-pickup,completed' }),
     ]);
 
@@ -38,7 +46,7 @@ export default function MechanicDashboard() {
     console.error(err);
     setError(err.message);
   }
-}, [view]);
+}, [view, hasCustomRange, customRange]);
 
   useEffect(() => {
     load();
@@ -58,7 +66,7 @@ export default function MechanicDashboard() {
     <div className="page">
       <div className="page-top-row">
         <h1 className="page-heading">Mechanic Dashboard</h1>
-        {tab !== 'staff' && <ViewToggle value={view} onChange={setView} />}
+        {tab !== 'staff' && <ViewToggle value={hasCustomRange ? null : view} onChange={pickView} />}
       </div>
 
       {/* Tabs Header */}
@@ -74,6 +82,37 @@ export default function MechanicDashboard() {
           </button>
         ))}
       </div>
+
+      {tab === 'logs' && (
+        <div className="report-toolbar">
+          <div className="field">
+            <label htmlFor="mech-dash-from">From</label>
+            <input
+              id="mech-dash-from"
+              type="date"
+              value={customRange.from}
+              max={customRange.to || toDateKey()}
+              onChange={(e) => setCustomRange((r) => ({ ...r, from: e.target.value }))}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="mech-dash-to">To</label>
+            <input
+              id="mech-dash-to"
+              type="date"
+              value={customRange.to}
+              min={customRange.from}
+              max={toDateKey()}
+              onChange={(e) => setCustomRange((r) => ({ ...r, to: e.target.value }))}
+            />
+          </div>
+          {hasCustomRange && (
+            <button type="button" className="btn btn-sm btn-ghost" onClick={() => pickView(view)}>
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {tab !== 'staff' && data?.range && (
         <p className="range-label small">

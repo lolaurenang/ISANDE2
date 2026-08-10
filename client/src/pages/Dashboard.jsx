@@ -17,15 +17,23 @@ const TABS = ['logs', 'staff', 'requests'];
 export default function Dashboard() {
   const [tab, setTab] = useState('logs');
   const [view, setView] = useState('week');
+  const [customRange, setCustomRange] = useState({ from: '', to: '' });
   const [data, setData] = useState(null);
   const [requests, setRequests] = useState([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
+  const hasCustomRange = Boolean(customRange.from && customRange.to);
+
+  function pickView(v) {
+    setView(v);
+    setCustomRange({ from: '', to: '' });
+  }
+
   const load = useCallback(async () => {
     try {
       const [dashRes, reqRes] = await Promise.all([
-        dashboardApi.manager({ view, date: toDateKey() }),
+        dashboardApi.manager(hasCustomRange ? customRange : { view, date: toDateKey() }),
         requestsApi.list(),
       ]);
       setData(dashRes);
@@ -33,7 +41,7 @@ export default function Dashboard() {
     } catch (err) {
       setError(err.message);
     }
-  }, [view]);
+  }, [view, hasCustomRange, customRange]);
 
   useEffect(() => {
     load();
@@ -59,7 +67,7 @@ export default function Dashboard() {
     <div className="page">
       <div className="page-top-row">
         <h1 className="page-heading">Dashboard</h1>
-        <ViewToggle value={view} onChange={setView} />
+        <ViewToggle value={hasCustomRange ? null : view} onChange={pickView} />
       </div>
 
       <div className="tabs">
@@ -69,6 +77,35 @@ export default function Dashboard() {
             {t === 'requests' && pending.length > 0 && <span className="tab-count">{pending.length}</span>}
           </button>
         ))}
+      </div>
+
+      <div className="report-toolbar">
+        <div className="field">
+          <label htmlFor="dash-from">From</label>
+          <input
+            id="dash-from"
+            type="date"
+            value={customRange.from}
+            max={customRange.to || toDateKey()}
+            onChange={(e) => setCustomRange((r) => ({ ...r, from: e.target.value }))}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="dash-to">To</label>
+          <input
+            id="dash-to"
+            type="date"
+            value={customRange.to}
+            min={customRange.from}
+            max={toDateKey()}
+            onChange={(e) => setCustomRange((r) => ({ ...r, to: e.target.value }))}
+          />
+        </div>
+        {hasCustomRange && (
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => pickView(view)}>
+            Clear
+          </button>
+        )}
       </div>
 
       <p className="range-label small">

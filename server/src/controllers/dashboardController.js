@@ -13,6 +13,32 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { toDateKey, startOfDay, endOfDay, rangeFor, rangeForElapsed } from '../utils/dates.js';
 import { withClockStatus, staffHoursAndJobs, mergeStaffStats } from '../utils/staffStats.js';
 
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+function hasExplicitRange(req) {
+  const { from, to } = req.query;
+  return Boolean(from && to && DATE_KEY.test(from) && DATE_KEY.test(to));
+}
+
+// Logs can't exist for days that haven't happened yet, so a manually
+// picked range still gets capped at today - same rule the week/month/year
+// presets already follow.
+function resolveElapsedRange(req) {
+  if (hasExplicitRange(req)) {
+    const todayEnd = endOfDay(toDateKey());
+    const to = endOfDay(req.query.to);
+    return { from: startOfDay(req.query.from), to: to > todayEnd ? todayEnd : to };
+  }
+  return rangeForElapsed(req.query.view || 'week', req.query.date || toDateKey());
+}
+
+function resolveJobRange(req) {
+  if (hasExplicitRange(req)) {
+    return { from: startOfDay(req.query.from), to: endOfDay(req.query.to) };
+  }
+  return rangeFor(req.query.view || 'week', req.query.date || toDateKey());
+}
+
 /** Home screen for whoever is logged in. */
 export const home = asyncHandler(async (req, res) => {
   const today = toDateKey();
@@ -60,9 +86,10 @@ export const managerDashboard = asyncHandler(async (req, res) => {
   const view = req.query.view || 'week';
   // Logs/attendance can't exist for days that haven't happened yet, but
   // the "Scheduled" job count for the rest of the month should still show
-  // up - so only the log window gets capped at today.
-  const { from, to } = rangeForElapsed(view, req.query.date || toDateKey());
-  const jobRange = rangeFor(view, req.query.date || toDateKey());
+  // up - so only the log window gets capped at today. A manually picked
+  // from/to range takes precedence over the week/month/year preset.
+  const { from, to } = resolveElapsedRange(req);
+  const jobRange = resolveJobRange(req);
   const fromKey = toDateKey(from);
   const toKey = toDateKey(to);
 
@@ -114,9 +141,10 @@ export const myDashboard = asyncHandler(async (req, res) => {
   const view = req.query.view || 'week';
   // Logs can never exist for days that haven't happened yet, but a
   // mechanic's scheduled/in-progress work for the rest of the month should
-  // still count - so only the log window gets capped at today.
-  const { from, to } = rangeForElapsed(view, req.query.date || toDateKey());
-  const jobRange = rangeFor(view, req.query.date || toDateKey());
+  // still count - so only the log window gets capped at today. A manually
+  // picked from/to range takes precedence over the week/month/year preset.
+  const { from, to } = resolveElapsedRange(req);
+  const jobRange = resolveJobRange(req);
 
   const [logs, jobStats] = await Promise.all([
     ActivityLog.find({ employee: req.user.id, loggedAt: { $gte: from, $lte: to } })
