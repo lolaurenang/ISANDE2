@@ -53,14 +53,16 @@ export const listJobs = asyncHandler(async (req, res) => {
   if (!status) {
   filter.status = { $ne: 'completed' };
 }
-  if (unassigned === 'true') filter.assignedTo = null;
+  // assignedTo is always an array - an "unassigned" job is stored as [],
+  // never null, so both branches below match on emptiness, not null.
+  if (unassigned === 'true') filter.assignedTo = { $size: 0 };
 
   // Managers see the whole shop; everyone else sees their own jobs
   // plus anything still unassigned that they could pick up.
   if (req.user.role === 'manager') {
     if (employee) filter.assignedTo = employee;
   } else {
-    filter.$or = [{ assignedTo: req.user.id }, { assignedTo: null }];
+    filter.$or = [{ assignedTo: req.user.id }, { assignedTo: { $size: 0 } }];
   }
 
   const jobs = await ServiceJob.find(filter)
